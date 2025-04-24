@@ -1,0 +1,44 @@
+---
+description: 
+globs: 
+alwaysApply: false
+---
+# Architecture
+
+## Frontend-Backend Communication
+
+This chat DApp uses a frontend-backend architecture:
+
+- **Frontend**: SvelteKit application written in TypeScript
+- **Backend**: Tauri/Rust application providing native functionality
+
+Communication between frontend and backend happens via Tauri's invoke system:
+```typescript
+// Frontend: Invoking Rust functions
+import { invoke } from "@tauri-apps/api/core";
+const result = await invoke("function_name", { param1: "value" });
+```
+
+```rust
+// Backend: Exposing functions to frontend
+#[tauri::command]
+fn function_name(param1: &str) -> String {
+    // Implementation
+}
+
+// Register in Builder
+.invoke_handler(tauri::generate_handler![function_name])
+```
+
+## Application Structure
+
+- **UI Components**: Built with Svelte and styled with CSS
+- **Business Logic**: Split between frontend (TypeScript) and backend (Rust)
+- **Data Flow**: Unidirectional data flow using Svelte's reactive state management
+
+## Best Practices
+
+1. Keep UI components small and focused
+2. Place complex logic in the Rust backend when possible
+3. Use TypeScript interfaces to define data structures shared between frontend and backend
+4. Follow the principle of least privilege for Tauri capabilities

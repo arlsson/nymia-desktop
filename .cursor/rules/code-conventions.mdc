@@ -1,0 +1,40 @@
+---
+description: 
+globs: 
+alwaysApply: false
+---
+# Code Conventions
+
+## TypeScript/JavaScript
+
+- Use TypeScript for all frontend code
+- Use Svelte's `$state` for reactive state management
+- Follow ESLint configuration for code style
+- Use async/await for asynchronous operations
+- Use meaningful variable and function names
+- Keep component files under 200 lines of code
+- Extract reusable logic into separate utility files
+
+## Svelte
+
+- Use Svelte's reactive declarations for derived state
+- Keep styles scoped to components
+- Use Svelte's event modifiers when appropriate
+- Follow the official [Svelte Style Guide](mdc:https:/github.com/sveltejs/svelte/blob/main/CONTRIBUTING.md#style-guide)
+
+## Rust
+
+- Follow Rust's official style guidelines
+- Use meaningful error handling with `Result` types
+- Document public functions with doc comments
+- Organize code into modules based on functionality
+- Use Rust's type system to enforce correctness
+- Avoid unsafe code unless absolutely necessary
+
+## Git
+
+- Use meaningful commit messages
+- Create feature branches for new features
+- Use pull requests for code review
+- Keep commits small and focused
+- Follow conventional commits style (feat, fix, chore, etc.)

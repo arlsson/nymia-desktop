@@ -1,0 +1,80 @@
+---
+description: 
+globs: 
+alwaysApply: false
+---
+# Development Workflow
+
+## Setting Up the Project
+
+1. Clone the repository
+2. Install dependencies:
+   ```bash
+   yarn install
+   ```
+3. Install Rust dependencies in the `src-tauri` directory:
+   ```bash
+   cd src-tauri
+   cargo fetch
+   ```
+
+## Development Commands
+
+- Start frontend development server:
+  ```bash
+  yarn dev
+  ```
+
+- Start Tauri development with hot-reload:
+  ```bash
+  yarn tauri dev
+  ```
+
+- Build the application for production:
+  ```bash
+  yarn tauri build
+  ```
+
+- Check TypeScript errors:
+  ```bash
+  yarn check
+  ```
+
+## Debugging
+
+- Frontend: Use browser developer tools when running `yarn dev`
+- Backend: Use `println!` statements or the Rust debugger
+- Full application: Use Tauri's logging capabilities:
+  ```rust
+  // In your Rust code
+  use tauri::LogicalSize;
+  tauri::Builder::default()
+      .setup(|app| {
+          app.get_window("main").unwrap().open_devtools();
+          Ok(())
+      })
+  ```
+
+## Testing
+
+- For UI components, create test files alongside the components
+- For Rust code, use the `#[cfg(test)]` module pattern:
+  ```rust
+  #[cfg(test)]
+  mod tests {
+      use super::*;
+      
+      #[test]
+      fn test_functionality() {
+          // Test implementation
+      }
+  }
+  ```
+
+## Deployment
+
+1. Build the application:
+   ```bash
+   yarn tauri build
+   ```
+2. The packaged application will be available in `src-tauri/target/release/bundle/`
