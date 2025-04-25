@@ -1,4 +1,3 @@
-
 <script lang="ts">
 // Component: src/lib/components/AuthForm.svelte
 // Description: Handles user input for Verus daemon RPC credentials and initiates the connection process.
@@ -6,14 +5,31 @@
 // - Calls the actual `connect_verus_daemon` Tauri command.
 // - Handles errors returned from the backend command.
 // - Changed import from '@tauri-apps/api/tauri' to '@tauri-apps/api/core'.
+// - Calls save_credentials command after successful connection.
+// - Added blockHeight to the 'authenticated' event payload.
   import { invoke } from '@tauri-apps/api/core';
-  import { onMount } from 'svelte';
+  import { onMount, createEventDispatcher } from 'svelte';
+
+  // Import the type definition if needed, or define inline
+  interface Credentials {
+      rpc_user: string;
+      rpc_pass: string;
+  }
+
+  interface AuthPayload {
+      rpc_user: string;
+      rpc_pass: string;
+      blockHeight: number;
+  }
 
   let rpcUser = '';
   let rpcPassword = '';
   let connectionStatus: 'idle' | 'connecting' | 'connected' | 'error' = 'idle';
   let blockHeight: number | null = null;
   let errorMessage: string | null = null;
+
+  // Event dispatcher to notify parent component about successful authentication
+  const dispatch = createEventDispatcher<{ authenticated: AuthPayload }>();
 
   async function connect() {
     connectionStatus = 'connecting';
@@ -30,7 +46,26 @@
       blockHeight = result;
       connectionStatus = 'connected';
       console.log('Connection successful, block height:', blockHeight);
-      // TODO: Store credentials securely on successful connection (Requirement 2.3)
+
+      // Save credentials securely after successful connection
+      try {
+          await invoke('save_credentials', {
+              rpcUser: rpcUser,
+              rpcPass: rpcPassword
+          });
+          console.log('Credentials saved securely.');
+          // Dispatch event including blockHeight
+          dispatch('authenticated', {
+              rpc_user: rpcUser,
+              rpc_pass: rpcPassword,
+              blockHeight: blockHeight // Pass block height
+          });
+      } catch (saveErr) {
+          console.error('Failed to save credentials:', saveErr);
+          // Optional: Show a non-blocking warning to the user?
+          errorMessage = 'Connected, but failed to save credentials for next time.';
+      }
+
     } catch (err: any) {
       connectionStatus = 'error';
       // Error from Rust backend is likely a string within the error object

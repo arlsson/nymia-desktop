@@ -1,11 +1,11 @@
 // File: src-tauri/src/verus_rpc.rs
 // Description: Handles RPC communication with the local Verus daemon.
 // Changes:
-// - Refactored HTTP status code handling using `response.error_for_status()`.
-// - Explicitly handle 401 Unauthorized separately.
+// - Complete rewrite of identity handling to simplify and fix the private address issue.
+// - FIX: Updated privateaddress location - it's inside the identity object, not at the top level.
 
-use serde::Deserialize;
-use serde_json::json;
+use serde::{Deserialize, Serialize};
+use serde_json::{json, Value};
 use std::time::Duration;
 
 // Define structs for the JSON-RPC request and response
@@ -37,82 +37,147 @@ pub enum VerusRpcError {
     Format,
 }
 
-// Function to connect and get block height
-// Exposed as a Tauri command
-pub async fn connect_and_get_block_height(
-    rpc_user: String,
-    rpc_pass: String,
-) -> Result<u64, VerusRpcError> {
+// SIMPLIFIED: Use a simpler approach where we deserialize to a dynamic Value first
+// This allows us to inspect the raw structure to figure out what's happening
+
+// Struct to hold formatted identity name
+#[derive(Serialize, Debug, Clone)]
+pub struct FormattedIdentity {
+    pub formatted_name: String,
+    pub i_address: String, // Include original i-address for reference
+}
+
+// Helper function for generic RPC calls
+async fn make_rpc_call<T: for<'de> Deserialize<'de>>(
+    rpc_user: &str,
+    rpc_pass: &str,
+    method: &str,
+    params: Vec<Value>,
+) -> Result<T, VerusRpcError> {
     let client = reqwest::Client::new();
-    let rpc_url = "http://localhost:18843"; // As per PRD for VRSCTEST
+    let rpc_url = "http://localhost:18843";
 
     let request_body = json!({
         "jsonrpc": "1.0",
-        "id":"chat-dapp-connect",
-        "method": "getblockcount",
-        "params": []
+        "id": format!("chat-dapp-{}", method),
+        "method": method,
+        "params": params
     });
 
-    log::info!("Attempting to connect to Verus daemon at {}", rpc_url);
+    log::debug!("Making RPC call: method={}, params={:?}", method, params);
 
     let request = client
         .post(rpc_url)
         .basic_auth(rpc_user, Some(rpc_pass))
         .header("Content-Type", "application/json")
         .json(&request_body)
-        .timeout(Duration::from_secs(5)); // 5-second timeout as per PRD
+        .timeout(Duration::from_secs(10)); // Increased timeout slightly for potentially slower calls
 
     match request.send().await {
         Ok(response) => {
-            // Handle 401 Unauthorized specifically
             if response.status() == reqwest::StatusCode::UNAUTHORIZED {
-                log::error!("Authentication failed (HTTP 401).");
-                return Err(VerusRpcError::Rpc {
-                    code: 401,
-                    message: "Authentication failed. Check RPC username/password.".to_string(),
-                });
+                return Err(VerusRpcError::Rpc { code: 401, message: "Authentication failed.".to_string() });
             }
-
-            // Check for other client/server errors (4xx, 5xx)
             match response.error_for_status() {
                 Ok(successful_response) => {
-                    // Status was 2xx, proceed to parse JSON
-                    match successful_response.json::<RpcResponse<u64>>().await {
+                    match successful_response.json::<RpcResponse<T>>().await {
                         Ok(rpc_response) => {
-                            if let Some(block_height) = rpc_response.result {
-                                log::info!("Successfully connected. Block height: {}", block_height);
-                                Ok(block_height)
+                            if let Some(result) = rpc_response.result {
+                                Ok(result)
                             } else if let Some(err) = rpc_response.error {
-                                log::error!("RPC error from daemon: code={}, message={}", err.code, err.message);
                                 Err(VerusRpcError::Rpc { code: err.code, message: err.message })
                             } else {
-                                log::error!("RPC response format error: missing result and error fields");
                                 Err(VerusRpcError::Format)
                             }
                         }
-                        Err(e) => {
-                            // JSON parsing failed on a 2xx response
-                            log::error!("Failed to parse successful RPC response: {}", e);
-                            Err(VerusRpcError::Parse(e))
-                        }
+                        Err(e) => Err(VerusRpcError::Parse(e)),
                     }
                 }
-                Err(status_error) => {
-                    // Status was 4xx/5xx (but not 401, handled above)
-                    log::error!("HTTP error: {}", status_error);
-                    Err(VerusRpcError::Network(status_error))
-                }
+                Err(status_error) => Err(VerusRpcError::Network(status_error)),
             }
         }
         Err(e) => {
-            // Original request sending failed (network issue, timeout, etc.)
             if e.is_timeout() {
-                log::error!("Connection timed out after 5 seconds.");
                 Err(VerusRpcError::Timeout)
             } else {
-                 log::error!("Network request failed: {}", e);
                  Err(VerusRpcError::Network(e))
             }
         }
     }
+}
+
+// Function to connect and get block height
+// Exposed as a Tauri command
+pub async fn connect_and_get_block_height(
+    rpc_user: String,
+    rpc_pass: String,
+) -> Result<u64, VerusRpcError> {
+    log::info!("Attempting to connect to Verus daemon...");
+    make_rpc_call(&rpc_user, &rpc_pass, "getblockcount", vec![]).await
+}
+
+// DRAMATICALLY SIMPLIFIED version that handles identities with private addresses
+pub async fn get_login_identities(
+    rpc_user: String,
+    rpc_pass: String,
+) -> Result<Vec<FormattedIdentity>, VerusRpcError> {
+    log::info!("Fetching identities for login selection...");
+
+    // Use a dynamic Value to first see what the raw structure looks like
+    let identities_raw: Vec<serde_json::Value> = make_rpc_call(
+        &rpc_user,
+        &rpc_pass,
+        "listidentities",
+        vec![json!("{\"include_private_data\":true}")]
+    ).await?;
+
+    log::info!("Received {} raw identity entries from listidentities.", identities_raw.len());
+    
+    let mut formatted_identities = Vec::new();
+
+    // Process each identity
+    for identity_obj in identities_raw {
+        // Log the entire structure to help debugging
+        log::debug!("Raw identity: {}", serde_json::to_string(&identity_obj).unwrap_or_default());
+        
+        // Get the "identity" object first
+        if let Some(identity_details) = identity_obj.get("identity") {
+            // Extract privateaddress FROM WITHIN the identity object
+            let has_private_address = identity_details.get("privateaddress")
+                .and_then(|v| v.as_str())
+                .filter(|s| !s.is_empty())
+                .is_some();
+            
+            // Only process identities with private addresses
+            if has_private_address {
+                if let (Some(name), Some(address)) = (
+                    identity_details.get("name").and_then(|v| v.as_str()),
+                    identity_details.get("identityaddress").and_then(|v| v.as_str())
+                ) {
+                    log::debug!("Found identity with private address: {}", name);
+                    
+                    // Format the name with @ suffix to indicate it's a VerusID
+                    let formatted_name = format!("{}@", name);
+                    
+                    formatted_identities.push(FormattedIdentity {
+                        formatted_name,
+                        i_address: address.to_string(),
+                    });
+                }
+            }
+        }
+    }
+
+    log::info!("Found {} identities with private addresses for login.", formatted_identities.len());
+    
+    // If no identities with private addresses, return an error
+    if formatted_identities.is_empty() {
+        log::error!("No VerusIDs with private addresses found in the wallet.");
+        return Err(VerusRpcError::Rpc {
+            code: -1,
+            message: "No VerusIDs with private addresses found in your wallet.".to_string()
+        });
+    }
+    
+    Ok(formatted_identities)
 } 
