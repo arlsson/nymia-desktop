@@ -1,8 +1,8 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "chat-dapp",
+  "productName": "Nymia",
   "version": "0.1.0",
-  "identifier": "com.chat-dapp.app",
+  "identifier": "com.nymia.app",
   "build": {
     "beforeDevCommand": "yarn dev",
     "devUrl": "http://localhost:1420",
@@ -12,8 +12,8 @@
   "app": {
     "windows": [
       {
-        "title": "chat-dapp",
-        "width": 800,
+        "title": "Nymia",
+        "width": 900,
         "height": 600
       }
     ],

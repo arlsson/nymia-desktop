@@ -3,6 +3,9 @@
 // Changes:
 // - Complete rewrite of identity handling to simplify and fix the private address issue.
 // - FIX: Updated privateaddress location - it's inside the identity object, not at the top level.
+// - Added `private_address` to FormattedIdentity and populate it.
+// - FIX: Corrected listidentities parameters to (true, true, true).
+// - FIX: Reverted privateaddress extraction logic to look inside the `identity` sub-object.
 
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
@@ -40,11 +43,12 @@ pub enum VerusRpcError {
 // SIMPLIFIED: Use a simpler approach where we deserialize to a dynamic Value first
 // This allows us to inspect the raw structure to figure out what's happening
 
-// Struct to hold formatted identity name
+// Struct to hold formatted identity name and addresses
 #[derive(Serialize, Debug, Clone)]
 pub struct FormattedIdentity {
     pub formatted_name: String,
     pub i_address: String, // Include original i-address for reference
+    pub private_address: Option<String>, // Added optional private address
 }
 
 // Helper function for generic RPC calls
@@ -116,7 +120,7 @@ pub async fn connect_and_get_block_height(
     make_rpc_call(&rpc_user, &rpc_pass, "getblockcount", vec![]).await
 }
 
-// DRAMATICALLY SIMPLIFIED version that handles identities with private addresses
+// Updated function to include private address
 pub async fn get_login_identities(
     rpc_user: String,
     rpc_pass: String,
@@ -128,48 +132,57 @@ pub async fn get_login_identities(
         &rpc_user,
         &rpc_pass,
         "listidentities",
-        vec![json!("{\"include_private_data\":true}")]
+        // FIX: Pass (verbose=true, include_watchonly=true, include_private_data=true)
+        vec![json!(true), json!(true), json!(true)] 
     ).await?;
 
     log::info!("Received {} raw identity entries from listidentities.", identities_raw.len());
-    
+
     let mut formatted_identities = Vec::new();
 
     // Process each identity
     for identity_obj in identities_raw {
         // Log the entire structure to help debugging
         log::debug!("Raw identity: {}", serde_json::to_string(&identity_obj).unwrap_or_default());
-        
-        // Get the "identity" object first
+
+        // FIX: Look for privateaddress inside the `identity` sub-object, as it worked before.
         if let Some(identity_details) = identity_obj.get("identity") {
             // Extract privateaddress FROM WITHIN the identity object
-            let has_private_address = identity_details.get("privateaddress")
+            let private_address_opt = identity_details.get("privateaddress")
                 .and_then(|v| v.as_str())
                 .filter(|s| !s.is_empty())
-                .is_some();
-            
-            // Only process identities with private addresses
-            if has_private_address {
-                if let (Some(name), Some(address)) = (
+                .map(String::from); // Convert to Option<String>
+
+            // Only process identities where we found a private address
+            if let Some(private_address) = private_address_opt {
+                // Also get name and i-address from the identity_details or identity_obj
+                if let (Some(name), Some(i_address)) = (
                     identity_details.get("name").and_then(|v| v.as_str()),
                     identity_details.get("identityaddress").and_then(|v| v.as_str())
                 ) {
-                    log::debug!("Found identity with private address: {}", name);
-                    
+                    log::debug!("Found identity with private address: {} ({})", name, i_address);
+
                     // Format the name with @ suffix to indicate it's a VerusID
                     let formatted_name = format!("{}@", name);
-                    
+
                     formatted_identities.push(FormattedIdentity {
                         formatted_name,
-                        i_address: address.to_string(),
+                        i_address: i_address.to_string(),
+                        private_address: Some(private_address), // Store the found private address
                     });
+                } else {
+                    log::warn!("Identity has private address but missing name or i-address in identity details.");
                 }
+            } else {
+                 log::debug!("Skipping identity '{}' because no private address found in identity object.", identity_details.get("name").and_then(|v| v.as_str()).unwrap_or("unknown"));
             }
+        } else {
+             log::warn!("Skipping raw identity entry because 'identity' sub-object is missing.");
         }
     }
 
     log::info!("Found {} identities with private addresses for login.", formatted_identities.len());
-    
+
     // If no identities with private addresses, return an error
     if formatted_identities.is_empty() {
         log::error!("No VerusIDs with private addresses found in the wallet.");
@@ -178,6 +191,6 @@ pub async fn get_login_identities(
             message: "No VerusIDs with private addresses found in your wallet.".to_string()
         });
     }
-    
+
     Ok(formatted_identities)
 } 
