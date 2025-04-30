@@ -6,6 +6,7 @@
 // - Added `private_address` to FormattedIdentity and populate it.
 // - FIX: Corrected listidentities parameters to (true, true, true).
 // - FIX: Reverted privateaddress extraction logic to look inside the `identity` sub-object.
+// - Implemented sub-ID formatting (name.parentname@) using getidentity.
 
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
@@ -120,75 +121,94 @@ pub async fn connect_and_get_block_height(
     make_rpc_call(&rpc_user, &rpc_pass, "getblockcount", vec![]).await
 }
 
-// Updated function to include private address
+// Updated function to include private address and sub-ID formatting
 pub async fn get_login_identities(
     rpc_user: String,
     rpc_pass: String,
 ) -> Result<Vec<FormattedIdentity>, VerusRpcError> {
     log::info!("Fetching identities for login selection...");
 
-    // Use a dynamic Value to first see what the raw structure looks like
-    let identities_raw: Vec<serde_json::Value> = make_rpc_call(
+    let identities_raw: Vec<Value> = make_rpc_call(
         &rpc_user,
         &rpc_pass,
         "listidentities",
-        // FIX: Pass (verbose=true, include_watchonly=true, include_private_data=true)
-        vec![json!(true), json!(true), json!(true)] 
-    ).await?;
+        vec![json!(true), json!(true), json!(true)],
+    )
+    .await?;
 
     log::info!("Received {} raw identity entries from listidentities.", identities_raw.len());
 
     let mut formatted_identities = Vec::new();
 
-    // Process each identity
     for identity_obj in identities_raw {
-        // Log the entire structure to help debugging
         log::debug!("Raw identity: {}", serde_json::to_string(&identity_obj).unwrap_or_default());
 
-        // FIX: Look for privateaddress inside the `identity` sub-object, as it worked before.
         if let Some(identity_details) = identity_obj.get("identity") {
-            // Extract privateaddress FROM WITHIN the identity object
             let private_address_opt = identity_details.get("privateaddress")
                 .and_then(|v| v.as_str())
                 .filter(|s| !s.is_empty())
-                .map(String::from); // Convert to Option<String>
+                .map(String::from);
 
-            // Only process identities where we found a private address
             if let Some(private_address) = private_address_opt {
-                // Also get name and i-address from the identity_details or identity_obj
-                if let (Some(name), Some(i_address)) = (
+                if let (Some(name), Some(i_address), Some(parent_id), Some(system_id)) = (
                     identity_details.get("name").and_then(|v| v.as_str()),
-                    identity_details.get("identityaddress").and_then(|v| v.as_str())
+                    identity_details.get("identityaddress").and_then(|v| v.as_str()),
+                    identity_details.get("parent").and_then(|v| v.as_str()),
+                    identity_details.get("systemid").and_then(|v| v.as_str()),
                 ) {
-                    log::debug!("Found identity with private address: {} ({})", name, i_address);
+                    log::debug!("Processing identity with private address: {} ({})", name, i_address);
 
-                    // Format the name with @ suffix to indicate it's a VerusID
-                    let formatted_name = format!("{}@", name);
+                    let mut formatted_name = format!("{}@", name); // Default format
+
+                    // Check if it's a sub-ID
+                    if parent_id != system_id {
+                        log::debug!("Identity '{}' is a sub-ID. Fetching parent '{}'...", name, parent_id);
+                        // Make the second RPC call to get the parent identity details
+                        match make_rpc_call::<Value>(&rpc_user, &rpc_pass, "getidentity", vec![json!(parent_id)]).await {
+                            Ok(parent_identity_result) => {
+                                // Extract parent name from its nested identity object
+                                if let Some(parent_name) = parent_identity_result
+                                    .get("identity")
+                                    .and_then(|id_details| id_details.get("name"))
+                                    .and_then(|n| n.as_str()) 
+                                {
+                                    log::debug!("Parent name found: {}", parent_name);
+                                    formatted_name = format!("{}.{}@", name, parent_name);
+                                } else {
+                                    log::error!("Failed to extract parent name for ID '{}' from parent '{}'. Using default format.", name, parent_id);
+                                    // Keep the default format as fallback
+                                }
+                            },
+                            Err(e) => {
+                                log::error!("RPC call failed for getidentity({}): {:?}. Using default format for '{}'.", parent_id, e, name);
+                                // Keep the default format as fallback
+                            }
+                        }
+                    }
 
                     formatted_identities.push(FormattedIdentity {
-                        formatted_name,
+                        formatted_name, // Use the potentially updated name
                         i_address: i_address.to_string(),
-                        private_address: Some(private_address), // Store the found private address
+                        private_address: Some(private_address),
                     });
                 } else {
-                    log::warn!("Identity has private address but missing name or i-address in identity details.");
+                    log::warn!("Identity has private address but missing required fields (name, i-address, parent, systemid) in identity details.");
                 }
             } else {
-                 log::debug!("Skipping identity '{}' because no private address found in identity object.", identity_details.get("name").and_then(|v| v.as_str()).unwrap_or("unknown"));
+                log::debug!("Skipping identity '{}' because no private address found.", identity_details.get("name").and_then(|v| v.as_str()).unwrap_or("unknown"));
             }
         } else {
-             log::warn!("Skipping raw identity entry because 'identity' sub-object is missing.");
+            log::warn!("Skipping raw identity entry because 'identity' sub-object is missing.");
         }
     }
 
     log::info!("Found {} identities with private addresses for login.", formatted_identities.len());
 
-    // If no identities with private addresses, return an error
     if formatted_identities.is_empty() {
         log::error!("No VerusIDs with private addresses found in the wallet.");
         return Err(VerusRpcError::Rpc {
             code: -1,
-            message: "No VerusIDs with private addresses found in your wallet.".to_string()
+            message: "No VerusIDs with private addresses found in your wallet.".to_string(),
         });
     }
 

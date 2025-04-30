@@ -91,7 +91,8 @@
 
 <div class="step-content-area">
     <h1 class="text-2xl font-semibold text-gray-800 mb-2">Select VerusID</h1>
-    <p class="text-gray-600 mb-6">Choose the VerusID you want to log in with.</p>
+    <p class="text-gray-600 mb-1">Choose the VerusID you want to log in with.</p>
+    <p class="text-xs text-gray-500 mb-6">(Only identities with a private address work with Nymia.)</p>
 
     {#if fetchStatus === 'fetching'}
         <div class="flex items-center justify-center text-gray-500 space-x-2 py-4">
