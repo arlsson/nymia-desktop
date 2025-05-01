@@ -213,4 +213,10 @@ pub async fn get_login_identities(
     }
 
     Ok(formatted_identities)
+}
+
+// NEW function to get balance for a z-address
+pub async fn get_private_balance(rpc_user: String, rpc_pass: String, address: String) -> Result<f64, VerusRpcError> {
+    log::info!("Fetching private balance for address: {}", address);
+    make_rpc_call(&rpc_user, &rpc_pass, "z_getbalance", vec![json!(address)]).await
 } 

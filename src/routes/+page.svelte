@@ -1,37 +1,27 @@
 <script lang="ts">
 // File: src/routes/+page.svelte
 // Description: Main application page. Handles overall state (loading, onboarding, logged in) 
-//              and orchestrates the display of OnboardingFlow or LoggedInView.
+//              and orchestrates the display of OnboardingFlow or the ChatInterface.
 // Changes:
-// - Complete refactor to use OnboardingFlow and LoggedInView components.
-// - Manages application state: loading, onboarding, loggedIn, error.
-// - Handles initial credential loading and determines starting state.
-// - Listens for events from child components (login-success, authentication-cleared, logout).
-// - Continues managing the periodic block check timer.
+// - Replaced LoggedInView with ChatInterface component.
+// - Updated imports and component usage in the template.
+// - Ensured logout event from ChatInterface is handled.
+// - Added fetching and passing of private balance.
 
 	import { onMount, onDestroy } from 'svelte';
 	import { invoke } from '@tauri-apps/api/core';
     import OnboardingFlow from '$lib/components/OnboardingFlow.svelte';
-    import LoggedInView from '$lib/components/LoggedInView.svelte';
+    // import LoggedInView from '$lib/components/LoggedInView.svelte'; // Removed
+    import ChatInterface from '$lib/components/ChatInterface.svelte'; // Added
+    import type { Credentials, FormattedIdentity, LoginPayload, PrivateBalance } from '$lib/types';
 
     // --- Types --- 
     type AppStatus = 'loading' | 'onboarding' | 'loggedIn' | 'error';
 
-    interface Credentials {
-        rpc_user: string;
-        rpc_pass: string;
-    }
-
-     interface FormattedIdentity {
-        formatted_name: string;
-        i_address: string;
-        private_address: string | null; 
-    }
-
-    interface LoginPayload {
-        identity: FormattedIdentity;
-        blockHeight: number | null;
-    }
+    // Removed local type definitions, assuming they exist in $lib/types
+    // interface Credentials { ... }
+    // interface FormattedIdentity { ... }
+    // interface LoginPayload { ... }
 
     // --- State Variables --- 
 	let appStatus: AppStatus = 'loading';
@@ -41,6 +31,7 @@
 
     let loggedInIdentity: FormattedIdentity | null = null;
     let currentBlockHeight: number | null = null;
+    let currentPrivateBalance: PrivateBalance = null;
     let blockCheckIntervalId: ReturnType<typeof setInterval> | null = null;
 
     // --- Lifecycle --- 
@@ -74,87 +65,125 @@
     });
 
     // --- Event Handlers from Components ---
-    function handleLoginSuccess(event: CustomEvent<LoginPayload>) {
+    async function handleLoginSuccess(event: CustomEvent<LoginPayload>) {
         console.log("Login successful from OnboardingFlow:", event.detail);
         loggedInIdentity = event.detail.identity;
-        currentBlockHeight = event.detail.blockHeight; // Use blockheight from onboarding test
+        currentBlockHeight = event.detail.blockHeight;
         appStatus = 'loggedIn';
-        // Keep block timer running
+        currentPrivateBalance = null; // Reset balance before fetching
+
+        // Fetch balance immediately after login
+        if (loggedInIdentity?.private_address) {
+            try {
+                currentPrivateBalance = await invoke<number>('get_private_balance', {
+                     address: loggedInIdentity.private_address 
+                });
+                console.log("Fetched private balance successfully:", currentPrivateBalance);
+            } catch (balanceError) {
+                 console.error("Failed to fetch initial private balance:", balanceError);
+                 currentPrivateBalance = null; // Keep it null on error
+                 // TODO: Show non-critical error to user?
+            }
+        } else {
+            console.warn("Logged in, but no private address found for identity:", loggedInIdentity?.formatted_name);
+            currentPrivateBalance = null; // Ensure balance is null if no address
+        }
+        
+        // Start periodic check (or ensure it continues if already started by onMount)
+        startBlockCheckTimer(); 
     }
 
     function handleAuthenticationCleared() {
         console.log("Authentication cleared event received from OnboardingFlow.");
         storedCredentials = null;
-        // The OnboardingFlow component itself resets its internal state and goes to step 1.
-        // We just need to ensure the timer stops if it was running.
+        loggedInIdentity = null; // Ensure identity is cleared
+        currentPrivateBalance = null; // Clear balance
         stopBlockCheckTimer();
-        // Ensure app state is onboarding (it should be already, but just in case)
         appStatus = 'onboarding';
     }
 
     function handleLogout() {
-        console.log("Logout event received from LoggedInView.");
+        console.log("Logout event received from ChatInterface.");
         loggedInIdentity = null;
-        // Per PRD, logout returns to Step 3 (VerusID selection) of onboarding
+        currentPrivateBalance = null; // Clear balance on logout
         initialOnboardingStep = 'verusid'; 
         appStatus = 'onboarding';
         // Restart timer as we are back in an authenticated state (RPC creds still valid)
         startBlockCheckTimer();
     }
 
-    // --- Periodic Block Check Logic (Remains similar) ---
+    // --- Periodic Block & Balance Check Logic ---
     function startBlockCheckTimer() {
-        // Only start if we have credentials (either stored or just entered)
-        if (!storedCredentials && !loggedInIdentity) return; 
+        // Check if we have credentials or are logged in (which implies credentials were valid)
+        if (!storedCredentials && appStatus !== 'loggedIn') {
+            console.log("Not starting periodic check: No credentials and not logged in.");
+            return; 
+        }
         
         stopBlockCheckTimer(); // Clear any existing timer first
-        console.log("Starting periodic block height check (every 30s).");
-        performBlockCheck(); // Perform initial check immediately
-        blockCheckIntervalId = setInterval(performBlockCheck, 30000); // 30 seconds
+        console.log("Starting periodic block/balance check (every 30s).");
+        performChecks(); // Perform initial check immediately
+        blockCheckIntervalId = setInterval(performChecks, 30000); // 30 seconds
     }
 
     function stopBlockCheckTimer() {
         if (blockCheckIntervalId) {
-            console.log("Stopping periodic block height check.");
+            console.log("Stopping periodic block/balance check.");
             clearInterval(blockCheckIntervalId);
             blockCheckIntervalId = null;
         }
     }
 
-    async function performBlockCheck() {
+    async function performChecks() {
          // Only run if onboarding (and likely at VerusID step) or logged in
-        if (appStatus !== 'onboarding' && appStatus !== 'loggedIn') return;
+        if (appStatus !== 'onboarding' && appStatus !== 'loggedIn') {
+            console.log("Skipping periodic check: App status is", appStatus);
+            stopBlockCheckTimer(); // Stop if state changed unexpectedly
+            return;
+        }
         
         // We need credentials to check
         let credsToCheck = storedCredentials;
         if (!credsToCheck) {
             try {
-                // If not in memory maybe they were just saved? Try loading.
                  credsToCheck = await invoke<Credentials>('load_credentials');
             } catch {
-                console.warn("Periodic check: Credentials not available, skipping check.");
-                // Might indicate user cleared creds, timer should have stopped but double check
+                console.warn("Periodic check: Credentials not available, stopping checks.");
                 stopBlockCheckTimer();
                 return;
             }
         }
 
-        console.log("Performing periodic block height check...");
+        console.log("Performing periodic block & balance checks...");
         try {
+            // Fetch block height
             const blockHeightResult = await invoke<number>('connect_verus_daemon', {
                  rpcUser: credsToCheck.rpc_user,
                  rpcPass: credsToCheck.rpc_pass,
             });
             currentBlockHeight = blockHeightResult;
             console.log(`Block height updated: ${currentBlockHeight}`);
-        } catch (error) { // If the check fails, log error, but don't necessarily force logout
-            console.error("Periodic block check failed:", error);
-            // Potentially show a non-blocking connection status indicator?
-            // For now, just log it. User actions will trigger re-auth if needed.
-            // Stop the timer to prevent repeated errors if daemon is down.
+
+            // Fetch balance only if logged in and private address exists
+            if (appStatus === 'loggedIn' && loggedInIdentity?.private_address) {
+                 try {
+                    const balanceResult = await invoke<number>('get_private_balance', {
+                         address: loggedInIdentity.private_address 
+                    });
+                    currentPrivateBalance = balanceResult;
+                    console.log(`Private balance updated: ${currentPrivateBalance}`);
+                 } catch (balanceError) {
+                    console.error("Periodic balance check failed:", balanceError);
+                    // Don't stop timer, maybe it recovers, but maybe set balance to null?
+                    // currentPrivateBalance = null;
+                 }
+            }
+        } catch (error) { // If core check (getblockcount) fails, stop the timer
+            console.error("Periodic block check failed, stopping timer:", error);
             stopBlockCheckTimer();
-            // Optionally set blockHeight to null? 
+            // Optionally set blockHeight/balance to null?
             // currentBlockHeight = null;
+            // currentPrivateBalance = null;
         }
     }
 
@@ -196,12 +225,12 @@
 
     <!-- Logged In State -->
     {:else if appStatus === 'loggedIn' && loggedInIdentity}
-        <LoggedInView 
-            identityName={loggedInIdentity.formatted_name}
-            identityIAddress={loggedInIdentity.i_address}
-            identityPrivateAddress={loggedInIdentity.private_address}
-            bind:blockHeight={currentBlockHeight} 
-            on:logout={handleLogout}
+        <!-- Replaced LoggedInView with ChatInterface -->
+        <ChatInterface 
+            loggedInIdentity={loggedInIdentity}
+            bind:blockHeight={currentBlockHeight}
+            privateBalance={currentPrivateBalance}
+            on:logout={handleLogout} 
         />
     
     <!-- Fallback/Unexpected State -->

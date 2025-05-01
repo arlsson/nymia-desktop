@@ -61,14 +61,27 @@ async fn connect_verus_daemon(rpc_user: String, rpc_pass: String) -> Result<u64,
 
 // New command to get formatted identities
 #[tauri::command]
-async fn get_formatted_login_identities(
+async fn get_login_identities(
     app: tauri::AppHandle, // Need AppHandle to get stored credentials
 ) -> Result<Vec<FormattedIdentity>, CommandError> {
-    log::info!("get_formatted_login_identities command received");
+    log::info!("get_login_identities command received");
     // Load credentials first
     let creds = credentials::load_credentials(app).await?;
     // Then call the RPC function
     verus_rpc::get_login_identities(creds.rpc_user, creds.rpc_pass)
+        .await
+        .map_err(CommandError::from)
+}
+
+// NEW command to get private balance
+#[tauri::command]
+async fn get_private_balance(
+    app: tauri::AppHandle, // Need AppHandle for credentials
+    address: String,
+) -> Result<f64, CommandError> {
+    log::info!("get_private_balance command received for address: {}", address);
+    let creds = credentials::load_credentials(app).await?;
+    verus_rpc::get_private_balance(creds.rpc_user, creds.rpc_pass, address)
         .await
         .map_err(CommandError::from)
 }
@@ -88,7 +101,8 @@ pub fn run() {
             credentials::save_credentials, // Add credential commands
             credentials::load_credentials,
             credentials::clear_credentials,
-            get_formatted_login_identities // Add the new command
+            get_login_identities, // Correct name used here
+            get_private_balance // Add the new balance command
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

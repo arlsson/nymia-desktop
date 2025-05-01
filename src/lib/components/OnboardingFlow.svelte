@@ -10,6 +10,9 @@
 // - Handles events from step components to manage flow.
 // - Retains overall layout and bottom button bar logic.
 // - Imports types from src/lib/types.ts instead of defining locally.
+// - Changed identity selection to store the full FormattedIdentity object.
+// - Updated handleLogin to dispatch the correct identity details.
+// - Updated button logic and state resets to use the full identity object.
 
   import { createEventDispatcher, onMount } from 'svelte';
   import { invoke } from '@tauri-apps/api/core';
@@ -45,7 +48,7 @@
   let rpcUser = initialCredentials?.rpc_user || '';
   let rpcPassword = initialCredentials?.rpc_pass || '';
   let connectionBlockHeight: number | null = null; // Updated by CredentialsStep
-  let selectedIdentityIAddress: string | null = null; // Updated by VerusIdStep
+  let selectedIdentity: FormattedIdentity | null = null; // Store the full selected identity
   let currentCredentialsFromChild: Credentials | null = initialCredentials; // Track latest from CredentialsStep
   let connectionTestedSuccessfully = false; // Track if connection test passed in CredentialsStep
 
@@ -72,6 +75,8 @@
       rpcUser = initialCredentials.rpc_user;
       rpcPassword = initialCredentials.rpc_pass;
       currentCredentialsFromChild = initialCredentials;
+      // Also reset identity selection if creds change during onboarding
+      selectedIdentity = null; 
   }
   
   // Reset connection success flag when moving away from credentials step
@@ -84,7 +89,7 @@
     currentStep = step;
     // Reset relevant state when changing steps
     if (step !== 'verusid') {
-      selectedIdentityIAddress = null;
+      selectedIdentity = null;
     }
   }
 
@@ -101,7 +106,7 @@
       goToStep('blockchain');
     } else if (currentStep === 'verusid') {
       // Reset VerusID selection when going back
-      selectedIdentityIAddress = null;
+      selectedIdentity = null;
       goToStep('credentials');
     }
   }
@@ -139,8 +144,9 @@
       connectionTestedSuccessfully = false; // Disable moving to next step
   }
 
-  function handleIdSelected(event: CustomEvent<{ iAddress: string | null }>) {
-      selectedIdentityIAddress = event.detail.iAddress;
+  function handleIdSelected(event: CustomEvent<{ identity: FormattedIdentity | null }>) {
+      console.log("OnboardingFlow: Received idSelected event with identity:", event.detail.identity);
+      selectedIdentity = event.detail.identity; 
       // Parent component (this one) controls enabling the login button via `isPrimaryButtonDisabled`
   }
 
@@ -153,7 +159,7 @@
           rpcUser = '';
           rpcPassword = '';
           connectionBlockHeight = null;
-          selectedIdentityIAddress = null;
+          selectedIdentity = null; 
           currentCredentialsFromChild = null;
           connectionTestedSuccessfully = false;
           // Dispatch event up to +page.svelte
@@ -168,22 +174,14 @@
   }
 
   async function handleLogin() {
-      if (!selectedIdentityIAddress || !currentCredentialsFromChild) {
+      if (!selectedIdentity || !currentCredentialsFromChild) {
           console.error("OnboardingFlow: Cannot login - missing selected ID or credentials.");
           return;
       }
       
-      // *** Placeholder: Need to fetch full identity details before dispatching ***
-      console.warn("Login Placeholder: Fetching full identity details is needed here!")
-      const partialIdentity: FormattedIdentity = {
-          i_address: selectedIdentityIAddress,
-          formatted_name: `Selected ID (${selectedIdentityIAddress.substring(0,6)}...)`, // Placeholder name
-          private_address: null // We don't have this from VerusIdStep currently
-      };
-
-      console.log(`OnboardingFlow: Login initiated for ${selectedIdentityIAddress}`);
+      console.log(`OnboardingFlow: Login initiated for ${selectedIdentity.formatted_name} (${selectedIdentity.i_address})`);
       dispatch('login-success', {
-         identity: partialIdentity, 
+         identity: selectedIdentity,
          blockHeight: connectionBlockHeight 
       });
   }
@@ -196,7 +194,7 @@
   $: isPrimaryButtonDisabled = 
       (currentStep === 'blockchain' && selectedBlockchain !== 'verus-testnet') ||
       (currentStep === 'credentials' && !connectionTestedSuccessfully) || // Use the flag
-      (currentStep === 'verusid' && !selectedIdentityIAddress);
+      (currentStep === 'verusid' && !selectedIdentity); // Check the full object
 
   $: primaryButtonAction = 
       currentStep === 'blockchain' ? nextStep :

@@ -1,6 +1,8 @@
 <script lang="ts">
 // Component: src/lib/components/onboarding/VerusIdStep.svelte
 // Description: Handles fetching and selecting a VerusID.
+// Changes:
+// - Modified 'idSelected' event to dispatch the full FormattedIdentity object.
 
     import { createEventDispatcher, onMount } from 'svelte';
     import { invoke } from '@tauri-apps/api/core';
@@ -18,13 +20,13 @@
     // --- State ---
     let loginIdentities: FormattedIdentity[] = [];
     let loginIdentityOptions: DropdownOption[] = []; 
-    let selectedIdentityIAddress: string | null = null;
+    let selectedIdentityIAddress: string | null = null; // Keep this for dropdown binding
     let fetchStatus: FetchStatus = 'idle';
     let fetchError: string | null = null;
 
     // --- Event Dispatcher ---
     const dispatch = createEventDispatcher<{
-        idSelected: { iAddress: string | null };
+        idSelected: { identity: FormattedIdentity | null }; // Changed event payload
         clearAuthentication: void; // Request parent to clear auth
     }>();
 
@@ -53,11 +55,14 @@
         loginIdentities = [];
         loginIdentityOptions = [];
         selectedIdentityIAddress = null;
+        // Dispatch null initially or when re-fetching
+        dispatch('idSelected', { identity: null }); 
 
         try {
             console.log("VerusIdStep: Fetching login identities...");
             // Note: We use the credentials passed via prop, not internal state
-            const ids = await invoke<FormattedIdentity[]>('get_formatted_login_identities');
+            // TODO: Replace 'get_formatted_login_identities' with the actual correct Tauri command name if different
+            const ids = await invoke<FormattedIdentity[]>('get_login_identities'); 
             loginIdentities = ids;
             loginIdentityOptions = ids.map(id => ({ 
                 id: id.i_address, 
@@ -67,19 +72,28 @@
             fetchStatus = 'success';
             if (ids.length === 0) {
                 fetchError = "No VerusIDs with private addresses found in your wallet.";
+                dispatch('idSelected', { identity: null }); // Ensure parent knows none are selected
             }
         } catch (error: any) {
             console.error("VerusIdStep: Failed to fetch login identities:", error);
             fetchStatus = 'error';
             fetchError = `Error fetching identities: ${String(error)}`;
+            dispatch('idSelected', { identity: null }); // Ensure parent knows none are selected on error
         }
     }
 
     function handleIdSelection(event: CustomEvent<string | number | null>) {
         const newIAddress = typeof event.detail === 'string' ? event.detail : null;
-        selectedIdentityIAddress = newIAddress;
-        // Dispatch event immediately when selection changes
-        dispatch('idSelected', { iAddress: newIAddress }); 
+        selectedIdentityIAddress = newIAddress; // Keep local state for dropdown sync
+        
+        // Find the full identity object based on the selected iAddress
+        const selectedFullIdentity = newIAddress
+            ? loginIdentities.find(id => id.i_address === newIAddress) || null
+            : null;
+
+        console.log("VerusIdStep: Dispatching idSelected with:", selectedFullIdentity);
+        // Dispatch the full identity object (or null if none selected)
+        dispatch('idSelected', { identity: selectedFullIdentity }); 
     }
 
     function requestClearAuthentication() {
@@ -92,7 +106,7 @@
 <div class="step-content-area">
     <h1 class="text-2xl font-semibold text-gray-800 mb-2">Select VerusID</h1>
     <p class="text-gray-600 mb-1">Choose the VerusID you want to log in with.</p>
-    <p class="text-xs text-gray-500 mb-6">(Only identities with a private address work with Nymia.)</p>
+    <p class="text-xs text-gray-500 mb-6">(Only identities with a private address work with Nymia)</p>
 
     {#if fetchStatus === 'fetching'}
         <div class="flex items-center justify-center text-gray-500 space-x-2 py-4">

@@ -32,3 +32,6 @@ export type AppStatus = 'loading' | 'onboarding' | 'loggedIn' | 'error';
 
 // Onboarding step names
 export type OnboardingStep = 'blockchain' | 'credentials' | 'verusid'; 
+
+// Type alias for the private balance
+export type PrivateBalance = number | null; 
