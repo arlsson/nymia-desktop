@@ -4,15 +4,10 @@
 // Manages current step, shared state (credentials), renders step components,
 // controls navigation buttons, and communicates with the parent page.
 // Changes:
-// - Refactored to use child components for each step.
-// - Manages currentStep and shared credentials state.
-// - Renders step components conditionally.
-// - Handles events from step components to manage flow.
-// - Retains overall layout and bottom button bar logic.
-// - Imports types from src/lib/types.ts instead of defining locally.
-// - Changed identity selection to store the full FormattedIdentity object.
-// - Updated handleLogin to dispatch the correct identity details.
-// - Updated button logic and state resets to use the full identity object.
+// - Added new welcome step as the first step in the flow
+// - Updated step navigation to include the welcome step
+// - Modified button logic to handle welcome step
+// - Added WelcomeStep component import and rendering
 
   import { createEventDispatcher, onMount } from 'svelte';
   import { invoke } from '@tauri-apps/api/core';
@@ -20,6 +15,7 @@
   import { quintOut } from 'svelte/easing';
 
   // Import Step Components
+  import WelcomeStep from './onboarding/WelcomeStep.svelte';
   import BlockchainStep from './onboarding/BlockchainStep.svelte';
   import CredentialsStep from './onboarding/CredentialsStep.svelte';
   import VerusIdStep from './onboarding/VerusIdStep.svelte';
@@ -34,11 +30,10 @@
   } from '$lib/types';
 
   // --- Types ---
-
-  type Step = 'blockchain' | 'credentials' | 'verusid';
+  type Step = 'welcome' | 'blockchain' | 'credentials' | 'verusid';
 
   // --- Props ---
-  export let initialStep: OnboardingStep = 'blockchain';
+  export let initialStep: OnboardingStep = 'welcome';
   export let initialCredentials: Credentials | null = null;
 
   // --- State ---
@@ -94,7 +89,9 @@
   }
 
   function nextStep() {
-    if (currentStep === 'blockchain') {
+    if (currentStep === 'welcome') {
+      goToStep('blockchain');
+    } else if (currentStep === 'blockchain') {
       goToStep('credentials');
     } else if (currentStep === 'credentials' && connectionTestedSuccessfully) {
       goToStep('verusid');
@@ -102,7 +99,9 @@
   }
 
   function prevStep() {
-    if (currentStep === 'credentials') {
+    if (currentStep === 'blockchain') {
+      goToStep('welcome');
+    } else if (currentStep === 'credentials') {
       goToStep('blockchain');
     } else if (currentStep === 'verusid') {
       // Reset VerusID selection when going back
@@ -112,6 +111,9 @@
   }
 
   // --- Event Handlers from Step Components ---
+  function handleGetStarted() {
+    goToStep('blockchain');
+  }
 
   function handleBlockchainChange(event: CustomEvent<string | number | null>) {
       // Update local state, parent component handles enabling/disabling next button
@@ -165,7 +167,7 @@
           // Dispatch event up to +page.svelte
           dispatch('authentication-cleared');
           // Go back to the first step
-          goToStep('blockchain'); 
+          goToStep('welcome'); 
       } catch (clearError) {
           console.error("OnboardingFlow: Failed to clear stored credentials:", clearError);
           // TODO: Show error to the user within the VerusIdStep? Or here?
@@ -188,15 +190,18 @@
 
   // --- Dynamic Button Logic (Remains Here) ---
   $: primaryButtonLabel = 
+      currentStep === 'welcome' ? 'Get Started' :
       currentStep === 'blockchain' ? 'Next' : 
       currentStep === 'credentials' ? 'Continue' : 'Login';
 
   $: isPrimaryButtonDisabled = 
+      currentStep === 'welcome' ? false :
       (currentStep === 'blockchain' && selectedBlockchain !== 'verus-testnet') ||
       (currentStep === 'credentials' && !connectionTestedSuccessfully) || // Use the flag
       (currentStep === 'verusid' && !selectedIdentity); // Check the full object
 
   $: primaryButtonAction = 
+      currentStep === 'welcome' ? handleGetStarted :
       currentStep === 'blockchain' ? nextStep :
       currentStep === 'credentials' ? nextStep : handleLogin;
 
@@ -214,7 +219,13 @@
       <!-- Main Content Area (scrollable if needed) -->
       <div class="flex-grow px-10 pt-8 overflow-y-auto">
           <div class="step-container mx-auto" style="max-width: 450px;">
-              {#if currentStep === 'blockchain'}
+              {#if currentStep === 'welcome'}
+                 <div transition:slide|local={{ duration: 300, easing: quintOut }}>
+                     <WelcomeStep 
+                        on:getStarted={handleGetStarted}
+                     />
+                 </div>
+              {:else if currentStep === 'blockchain'}
                  <div transition:slide|local={{ duration: 300, easing: quintOut }}>
                      <BlockchainStep 
                         options={blockchainOptions} 
@@ -248,7 +259,7 @@
       <div class="px-10 py-4 border-t border-gray-200 bg-gray-50 mt-auto">
           <div class="flex justify-end space-x-3">
                <!-- Back Button (Conditional) -->
-              {#if currentStep !== 'blockchain'}
+              {#if currentStep !== 'welcome'}
                 <button 
                     type="button"
                     on:click={prevStep} 

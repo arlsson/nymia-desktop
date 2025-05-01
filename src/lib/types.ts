@@ -1,5 +1,8 @@
 // File: src/lib/types.ts
 // Description: Centralized type definitions for the application.
+// Changes:
+// - Added ChatMessage type for imported history.
+// - Added optional 'status' field to ChatMessage.
 
 // Credentials for Verus RPC connection
 export interface Credentials {
@@ -31,7 +34,19 @@ export interface LoginPayload {
 export type AppStatus = 'loading' | 'onboarding' | 'loggedIn' | 'error';
 
 // Onboarding step names
-export type OnboardingStep = 'blockchain' | 'credentials' | 'verusid'; 
+export type OnboardingStep = 'welcome' | 'blockchain' | 'credentials' | 'verusid'; 
 
 // Type alias for the private balance
-export type PrivateBalance = number | null; 
+export type PrivateBalance = number | null;
+
+// Structure for chat messages (especially imported ones)
+export interface ChatMessage {
+    id: string; // txid or generated ID for sent messages
+    sender: string | 'self'; // VerusID of the sender (@ format) or 'self'
+    text: string;
+    timestamp: number; // Placeholder for now, investigate source (blocktime?)
+    amount: number;
+    confirmations: number;
+    direction: 'received' | 'sent'; // Initially only 'received' from history
+    status?: 'sent' | 'delivered' | 'failed'; // Optional delivery status for sent messages
+} 

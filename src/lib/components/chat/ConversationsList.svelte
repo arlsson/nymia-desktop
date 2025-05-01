@@ -25,7 +25,7 @@
   // --- Events ---
   const dispatch = createEventDispatcher<{ 
     selectConversation: { conversationId: string };
-    newChat: void;
+    openNewChatModal: void;
   }>();
 
   function handleSelect(id: string) {
@@ -33,7 +33,7 @@
   }
   
   function handleNewChat() {
-      dispatch('newChat');
+      dispatch('openNewChatModal');
   }
 
 </script>

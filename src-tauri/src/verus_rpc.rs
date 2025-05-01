@@ -7,6 +7,10 @@
 // - FIX: Corrected listidentities parameters to (true, true, true).
 // - FIX: Reverted privateaddress extraction logic to look inside the `identity` sub-object.
 // - Implemented sub-ID formatting (name.parentname@) using getidentity.
+// - Added check_identity_eligibility function for New Chat flow.
+// - Added get_chat_history function for New Chat flow.
+// - Added ChatMessage struct.
+// - Added NotFoundOrIneligible and InvalidFormat error variants to VerusRpcError.
 
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
@@ -27,29 +31,71 @@ struct RpcError {
 }
 
 // Custom error type for our function
-#[derive(Debug, thiserror::Error)]
+#[derive(Debug, thiserror::Error, Serialize, Clone)]
 pub enum VerusRpcError {
     #[error("Network error: {0}")]
-    Network(#[from] reqwest::Error),
+    NetworkError(String),
     #[error("RPC error {code}: {message}")]
     Rpc { code: i32, message: String },
     #[error("Failed to parse response: {0}")]
-    Parse(#[source] reqwest::Error),
+    ParseError(String),
     #[error("RPC call timed out")]
     Timeout,
     #[error("RPC response format error: missing result and error fields")]
     Format,
+    #[error("Identity not found or cannot receive private messages")]
+    NotFoundOrIneligible,
+    #[error("Invalid VerusID format")]
+    InvalidFormat,
+}
+
+// Convert reqwest::Error to String for serialization
+impl From<reqwest::Error> for VerusRpcError {
+    fn from(err: reqwest::Error) -> Self {
+        if err.is_timeout() {
+            VerusRpcError::Timeout
+        } else if err.is_connect() || err.is_request() {
+            VerusRpcError::NetworkError(err.to_string())
+        } else {
+            VerusRpcError::ParseError(err.to_string())
+        }
+    }
 }
 
 // SIMPLIFIED: Use a simpler approach where we deserialize to a dynamic Value first
 // This allows us to inspect the raw structure to figure out what's happening
 
 // Struct to hold formatted identity name and addresses
-#[derive(Serialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct FormattedIdentity {
     pub formatted_name: String,
     pub i_address: String, // Include original i-address for reference
     pub private_address: Option<String>, // Added optional private address
+}
+
+// Struct for imported chat messages
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct ChatMessage {
+    pub id: String, // txid
+    pub sender: String, // target_identity_name (the sender in this context)
+    pub text: String, // Parsed message content
+    pub timestamp: u64, // Transaction timestamp (if available, else 0 or estimate) - Needs more investigation
+    pub amount: f64, // Amount from the transaction
+    pub confirmations: i64, // Confirmations from the transaction
+    pub direction: String, // "received"
+}
+
+// Struct for the z_listreceivedbyaddress RPC response item
+#[derive(Deserialize, Debug)]
+struct ReceivedByAddressEntry {
+    txid: String,
+    amount: f64,
+    confirmations: i64,
+    memostr: Option<String>, // Memo might be absent
+    // memo: String, // We only need memostr
+    // outindex: u32,
+    // change: bool,
+    // blocktime: Option<u64>, // Add blocktime if available and needed for timestamp
 }
 
 // Helper function for generic RPC calls
@@ -95,18 +141,20 @@ async fn make_rpc_call<T: for<'de> Deserialize<'de>>(
                                 Err(VerusRpcError::Format)
                             }
                         }
-                        Err(e) => Err(VerusRpcError::Parse(e)),
+                        Err(e) => {
+                           // Convert reqwest::Error into our VerusRpcError
+                           let verus_error: VerusRpcError = e.into();
+                           Err(verus_error)
+                       }
                     }
                 }
-                Err(status_error) => Err(VerusRpcError::Network(status_error)),
+                Err(status_error) => Err(status_error.into()), // Convert reqwest::Error here too
             }
         }
         Err(e) => {
-            if e.is_timeout() {
-                Err(VerusRpcError::Timeout)
-            } else {
-                 Err(VerusRpcError::Network(e))
-            }
+           // Convert reqwest::Error into our VerusRpcError
+           let verus_error: VerusRpcError = e.into();
+           Err(verus_error)
         }
     }
 }
@@ -219,4 +267,125 @@ pub async fn get_login_identities(
 pub async fn get_private_balance(rpc_user: String, rpc_pass: String, address: String) -> Result<f64, VerusRpcError> {
     log::info!("Fetching private balance for address: {}", address);
     make_rpc_call(&rpc_user, &rpc_pass, "z_getbalance", vec![json!(address)]).await
+}
+
+// NEW function for New Chat: Check identity eligibility
+pub async fn check_identity_eligibility(
+    rpc_user: String,
+    rpc_pass: String,
+    target_identity_name: String,
+) -> Result<FormattedIdentity, VerusRpcError> {
+    log::info!("Checking eligibility for identity: {}", target_identity_name);
+
+    // Basic format check
+    if !target_identity_name.ends_with('@') || target_identity_name.len() <= 1 {
+        log::warn!("Invalid identity format: {}", target_identity_name);
+        return Err(VerusRpcError::InvalidFormat);
+    }
+
+    match make_rpc_call::<Value>(&rpc_user, &rpc_pass, "getidentity", vec![json!(target_identity_name)]).await {
+        Ok(identity_result) => {
+            log::debug!("getidentity result for {}: {:?}", target_identity_name, identity_result);
+            if let Some(identity_details) = identity_result.get("identity") {
+                let private_address_opt = identity_details.get("privateaddress")
+                    .and_then(|v| v.as_str())
+                    .filter(|s| !s.is_empty())
+                    .map(String::from);
+
+                if private_address_opt.is_some() {
+                    if let (Some(name), Some(i_address)) = (
+                        identity_details.get("name").and_then(|v| v.as_str()),
+                        identity_details.get("identityaddress").and_then(|v| v.as_str()),
+                    ) {
+                        let formatted_name = format!("{}@", name);
+                        log::info!("Identity {} is eligible.", target_identity_name);
+                        Ok(FormattedIdentity {
+                            formatted_name,
+                            i_address: i_address.to_string(),
+                            private_address: private_address_opt,
+                        })
+                    } else {
+                        log::warn!("Identity {} found but missing name or i-address details.", target_identity_name);
+                        Err(VerusRpcError::NotFoundOrIneligible)
+                    }
+                } else {
+                    log::warn!("Identity {} found but has no private address.", target_identity_name);
+                    Err(VerusRpcError::NotFoundOrIneligible)
+                }
+            } else {
+                 log::warn!("'identity' object not found in getidentity result for {}.", target_identity_name);
+                 Err(VerusRpcError::NotFoundOrIneligible)
+            }
+        }
+        Err(e) => {
+            // Handle specific error types that indicate "Not Found" for getidentity
+            match e {
+                VerusRpcError::Rpc { code, ref message } if code == -5 || code == -8 => {
+                    // Code -5: Invalid address or key (Identity not found)
+                    // Code -8: Invalid parameter (Could also indicate identity not found)
+                    log::warn!("getidentity RPC error indicates not found for {}: code={}, message={}", target_identity_name, code, message);
+                    Err(VerusRpcError::NotFoundOrIneligible)
+                },
+                VerusRpcError::ParseError(ref msg) if msg.contains("500 Internal Server Error") => {
+                     // Treat 500 error specifically for getidentity as likely not found
+                    log::warn!("getidentity received 500 error, treating as not found for {}: {}", target_identity_name, msg);
+                    Err(VerusRpcError::NotFoundOrIneligible)
+                }
+                _ => {
+                    // Propagate other errors (network, timeout, different RPC errors, etc.)
+                    log::error!("RPC call failed for getidentity({}): {:?}", target_identity_name, e);
+                    Err(e)
+                }
+            }
+        }
+    }
+}
+
+// NEW function for New Chat: Get chat history from received memos
+pub async fn get_chat_history(
+    rpc_user: String,
+    rpc_pass: String,
+    target_identity_name: String, // The user we want history *from*
+    own_private_address: String, // The logged-in user's z-addr
+) -> Result<Vec<ChatMessage>, VerusRpcError> {
+    log::info!("Fetching chat history from {} for owner {}", target_identity_name, own_private_address);
+
+    let params = vec![json!(own_private_address)];
+    let received_txs: Vec<ReceivedByAddressEntry> = make_rpc_call(
+        &rpc_user,
+        &rpc_pass,
+        "z_listreceivedbyaddress",
+        params,
+    )
+    .await?;
+
+    log::debug!("Received {} transactions for address {}", received_txs.len(), own_private_address);
+
+    let mut chat_messages = Vec::new();
+    let history_marker = format!("//f//{}", target_identity_name);
+
+    for tx in received_txs {
+        if let Some(memostr) = tx.memostr {
+            if let Some(message_text) = memostr.strip_suffix(&history_marker) {
+                log::debug!("Found history message in tx {}: '{}'", tx.txid, message_text);
+                chat_messages.push(ChatMessage {
+                    id: tx.txid,
+                    sender: target_identity_name.clone(), // The sender is the target ID
+                    text: message_text.trim().to_string(),
+                    // TODO: Determine best way to get timestamp. blocktime might be available.
+                    // For now, using 0 as placeholder.
+                    timestamp: 0, // Placeholder - investigate using blocktime or other tx details
+                    amount: tx.amount,
+                    confirmations: tx.confirmations,
+                    direction: "received".to_string(),
+                });
+            }
+        }
+    }
+
+    log::info!("Found {} historical messages from {}", chat_messages.len(), target_identity_name);
+    // Sort by confirmations? Or timestamp if available?
+    chat_messages.sort_by_key(|m| m.confirmations); // Example: sort by confirmations ascending
+
+    Ok(chat_messages)
 } 
