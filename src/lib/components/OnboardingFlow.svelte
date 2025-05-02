@@ -296,35 +296,67 @@
   </div>
 
    <!-- Right Panel: Decorative Background -->
-   <div class="w-1/2 relative overflow-hidden bg-gradient-to-br from-blue-900 via-blue-700 to-indigo-900">
+   <div class="w-1/2 relative overflow-hidden bg-[#419A6A]">
        <!-- Background elements... -->
         <div 
-            class="absolute inset-0 opacity-30 mix-blend-soft-light bg-grid-pattern animate-pulse-slow"
-            style="background-image: radial-gradient(#3165D4 1px, transparent 1px); background-size: 20px 20px;"
+            class="absolute inset-0 opacity-15 mix-blend-soft-light bg-grid-pattern animate-pulse-slow"
+            style="background-image: radial-gradient(#5ab88a 1px, transparent 1px); background-size: 25px 25px;"
         >
         </div>
+     
+         
         <div 
-            class="absolute -bottom-1/4 -left-1/4 w-1/2 h-1/2 bg-gradient-radial from-blue-500 to-transparent opacity-20 rounded-full filter blur-3xl animate-float-slow"
-            style="--float-delay: 0s; --float-duration: 15s; background-color: #3165D4;"
-        ></div>
-         <div 
-            class="absolute -top-1/4 -right-1/4 w-2/3 h-2/3 bg-gradient-radial from-purple-500 to-transparent opacity-15 rounded-full filter blur-3xl animate-float-slow"
-            style="--float-delay: 5s; --float-duration: 20s;"
+            class="absolute bottom-1/4 right-0 w-full h-full bg-gradient-radial from-black to-transparent opacity-10 rounded-full filter blur-3xl animate-float-slow"
+            style="--float-delay: 15s; --float-duration: 28s; --float-x: -35px; --float-y: -45px; --float-x2: -55px; --float-y2: 25px; --float-x3: 40px; --float-y3: 50px;"
         ></div>
         <div 
-            class="absolute bottom-1/4 right-0 w-1/3 h-1/3 bg-gradient-radial from-teal-400 to-transparent opacity-25 rounded-full filter blur-2xl animate-float-slow"
-            style="--float-delay: 10s; --float-duration: 18s;"
+            class="absolute top-1/4 left-1/4 w-[120%] h-[120%] bg-gradient-radial from-white to-transparent opacity-25 rounded-full filter blur-3xl animate-float-slow"
+            style="--float-delay: 5s; --float-duration: 35s; --float-x: 45px; --float-y: -40px; --float-x2: 60px; --float-y2: 35px; --float-x3: -30px; --float-y3: -50px;"
         ></div>
    </div>
 </div>
 
 <style>
    /* Background animation keyframes */
-  @keyframes pulse-slow { /* ... */ }
-  .animate-pulse-slow { /* ... */ }
-  @keyframes float-slow { /* ... */ }
-  .animate-float-slow { /* ... */ }
-  .bg-gradient-radial { /* ... */ }
+  @keyframes pulse-slow {
+    0%, 100% { opacity: 0.15; }
+    50% { opacity: 0.3; }
+  }
+  
+  .animate-pulse-slow {
+    animation: pulse-slow 10s ease-in-out infinite;
+  }
+  
+  @keyframes float-slow {
+    0% { 
+      transform: translate(0, 0) scale(1); 
+    }
+    25% { 
+      transform: translate(var(--float-x, 40px), var(--float-y, 60px)) scale(1.08); 
+    }
+    50% { 
+      transform: translate(var(--float-x2, -35px), var(--float-y2, 40px)) scale(1.04); 
+    }
+    75% { 
+      transform: translate(var(--float-x3, -45px), var(--float-y3, -40px)) scale(0.96); 
+    }
+    100% { 
+      transform: translate(0, 0) scale(1); 
+    }
+  }
+  
+  .animate-float-slow {
+    animation-name: float-slow;
+    animation-duration: var(--float-duration, 20s);
+    animation-delay: var(--float-delay, 0s);
+    animation-iteration-count: infinite;
+    animation-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+    will-change: transform;
+  }
+  
+  .bg-gradient-radial {
+    background-image: radial-gradient(circle, var(--tw-gradient-from) 0%, transparent 70%);
+  }
 
   /* Other styles */
   .step-container {

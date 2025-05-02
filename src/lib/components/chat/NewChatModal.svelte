@@ -115,7 +115,7 @@
         isSuccess = false;
         eligibleIdentity = null;
         foundHistory = null;
-		const targetId = targetVerusId.trim();
+		const targetId = targetVerusId.trim().toLowerCase();
 
 		try {
             // 1. Check Eligibility

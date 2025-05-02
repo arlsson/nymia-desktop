@@ -90,7 +90,7 @@
 <!-- Credentials step content - Optimized for 700px height -->
 <div class="step-content-area">
     <h1 class="text-2xl font-semibold text-gray-800 mb-1">Enter Credentials</h1>
-    <p class="text-gray-600 mb-3">Enter the RPC credentials for your Verus daemon.</p>
+    <p class="text-gray-600 text-normal mb-3">Enter the RPC credentials for your Verus daemon.</p>
     
     <div class="flex items-center mb-2">
         <a href="#" target="_blank" rel="noopener noreferrer" class="inline-flex items-center text-sm text-green-600 hover:text-green-700 transition-colors duration-150">

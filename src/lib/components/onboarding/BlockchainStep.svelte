@@ -26,7 +26,7 @@
 
 <div class="step-content-area">
     <h1 class="text-2xl font-semibold text-gray-800 mb-2">Select Blockchain</h1>
-    <p class="text-gray-600 mb-6">Choose the network you want to connect to.</p>
+    <p class="text-gray-600 text-normal mb-6">Choose the network you want to connect to.</p>
     
     <CustomDropdown 
         label="Blockchain"

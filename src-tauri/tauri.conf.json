@@ -12,9 +12,12 @@
   "app": {
     "windows": [
       {
+        "label": "main",
         "title": "Nymia",
         "width": 900,
-        "height": 600
+        "height": 600,
+        "visible": true,
+        "resizable": true
       }
     ],
     "security": {

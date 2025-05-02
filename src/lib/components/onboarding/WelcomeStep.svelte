@@ -1,39 +1,79 @@
 <script lang="ts">
 // Component: src/lib/components/onboarding/WelcomeStep.svelte
 // Description: Initial welcome screen for the onboarding flow.
-// Features a static text message and the Nymia logo.
+// Features Nymia icon, tagline image, and welcome text.
 // Changes:
-// - Made logo smaller
-// - Made text smaller
-// - Aligned text to the left
+// - Replaced old logo/text with new icon, tagline image, and welcome message.
+// - Centered content vertically and horizontally.
+// - Adjusted spacing.
+// - Added smooth entrance animations using Svelte transitions.
+// - Enhanced icon animation for smoother motion.
 
-import { createEventDispatcher } from 'svelte';
+import { createEventDispatcher, onMount } from 'svelte';
+import { fade, fly } from 'svelte/transition';
+import { quintOut } from 'svelte/easing';
 
 // --- Event Dispatcher ---
+// Although not used in this static welcome step, kept for consistency with previous versions
+// and potential future use (e.g., animating entry before enabling 'Get Started').
 const dispatch = createEventDispatcher<{ getStarted: void }>();
+
+// Control element visibility for animations
+let visible = false;
+
+// Set visible after component mounts to trigger animations
+onMount(() => {
+  // Slightly longer delay to ensure DOM is fully ready
+  setTimeout(() => {
+    visible = true;
+  }, 150);
+});
 </script>
 
-<div class="step-content-area flex flex-col items-center justify-center">
-  <img src="/src/lib/assets/nymia-logo.png" alt="Nymia Logo" class="w-40 mb-8" />
+<div class="step-content-area flex flex-col items-center justify-center text-center h-full pt-10 pb-10">
   
-  <div class="welcome-text text-left max-w-md">
-    <p class="text-base font-medium text-gray-800 mb-2">
-      No one can see a thing—not even that you're here.
+  {#if visible}
+    <!-- Nymia Icon -->
+    <div class="transform-gpu"> <!-- Hardware acceleration wrapper -->
+      <img 
+        src="/src/lib/assets/nymia-icon.webp" 
+        alt="Nymia Icon" 
+        class="w-12 h-12 mb-6" 
+        transition:fly={{ y: -20, duration: 1200, delay: 0, easing: quintOut }}
+      />
+    </div>
+  {/if}
+  
+  {#if visible}
+    <!-- Tagline Image -->
+    <img 
+      src="/src/lib/assets/tagline.webp" 
+      alt="Messages you can't see. Payments you can't trace. Freedom I can feel." 
+      class="w-72 mb-16" 
+      transition:fly={{ x: -20, duration: 1200, delay: 400, easing: quintOut }}
+    />
+  {/if}
+
+  {#if visible}
+    <!-- Welcome Text -->
+    <p 
+      class="text-sm text-gray-600 tracking-tight"
+      transition:fade={{ duration: 800, delay: 700 }}
+    >
+      Welcome, full&#8209;node runner. Your privacy starts now.
     </p>
-    <p class="text-base text-gray-700">
-      Your messages and payments leave zero trace. It's like you were never on the network at all.
-    </p>
-  </div>
+  {/if}
 </div>
 
 <style>
   .step-content-area {
     width: 100%;
-    height: 100%;
+    min-height: 300px;
   }
   
-  .welcome-text {
-    margin-bottom: 2rem;
-    line-height: 1.5;
+  /* Add hardware acceleration for smoother animations */
+  .transform-gpu {
+    will-change: transform;
+    transform: translateZ(0);
   }
 </style> 
