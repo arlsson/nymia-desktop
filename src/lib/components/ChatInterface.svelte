@@ -1,7 +1,7 @@
 <script lang="ts">
 // Component: src/lib/components/ChatInterface.svelte
 // Description: Main container for the VerusID chat interface.
-// Manages the overall layout and integrates the NewChatModal.
+// Manages the overall layout, conversations, messages, polling, and sending.
 // Changes:
 // - Removed mock data initialization for conversations and messages.
 // - Initialized conversations and messages state as empty.
@@ -9,6 +9,10 @@
 // - Implemented message merging logic, preventing duplicates.
 // - Added unread indicator logic for conversations.
 // - Refined sorting logic to prioritize confirmations for received messages.
+// - Imported global Conversation type from types.ts.
+// - Stored recipient_private_address in conversations array.
+// - Implemented handleSendMessage to perform optimistic UI update and call backend.
+// - Corrected message sorting to be descending by timestamp.
 
   import { createEventDispatcher, onMount, onDestroy } from 'svelte';
   import { invoke } from '@tauri-apps/api/core';
@@ -16,7 +20,7 @@
   import ConversationsList from './chat/ConversationsList.svelte';
   import ConversationView from './chat/ConversationView.svelte';
   import NewChatModal from './chat/NewChatModal.svelte'; // Import the modal
-  import type { FormattedIdentity, PrivateBalance, ChatMessage } from '$lib/types';
+  import type { FormattedIdentity, PrivateBalance, ChatMessage, Conversation } from '$lib/types';
 
   // --- Props ---
   export let loggedInIdentity: FormattedIdentity | null = null; // Received from parent (+page.svelte)
@@ -32,25 +36,19 @@
   }>();
 
   // --- State ---
-  let selectedConversationId: string | null = null; // Example state to track active chat
-  let showNewChatModal = false; // State to control modal visibility
-
-  // Define Conversation type locally for clarity (could move to types.ts)
-  type Conversation = {
-    id: string;         // Unique ID, likely the VerusID i-address or formatted name
-    name: string;       // Display name (VerusID name)
-    unread?: boolean;   // Optional flag for unread messages
-  };
+  let selectedConversationId: string | null = null; // Use recipient's formatted_name as ID
+  let showNewChatModal = false;
 
   // --- Data State (Initialized Empty) ---
-  let conversations: Conversation[] = [];
+  let conversations: Conversation[] = []; // Use the imported type
   let messages: { [conversationId: string]: ChatMessage[] } = {};
   let pollingIntervalId: ReturnType<typeof setInterval> | null = null;
-  let isPolling = false; // Prevent overlapping polls
+  let isPolling = false;
 
   // --- Computed State ---
   $: existingConversationIds = conversations.map(c => c.id.toLowerCase());
   $: loggedInUserPrivateAddress = loggedInIdentity?.private_address;
+  $: loggedInUserIdentityName = loggedInIdentity?.formatted_name;
 
   // --- Lifecycle ---
   onMount(() => {
@@ -170,12 +168,21 @@
 
   // Comparison function for sorting messages
   function compareMessages(a: ChatMessage, b: ChatMessage): number {
-     // Prioritize confirmations for received messages if timestamps are placeholder (0)
-     if (a.direction === 'received' && b.direction === 'received' && a.timestamp === 0 && b.timestamp === 0) {
-         return a.confirmations - b.confirmations; // Sort by confirmations ascending
-     }
-     // Fallback to timestamp sorting
-     return a.timestamp - b.timestamp;
+    // Primary sort: Timestamp descending (newest first in array)
+    const timestampDiff = b.timestamp - a.timestamp;
+    if (timestampDiff !== 0) {
+        return timestampDiff;
+    }
+
+    // Secondary sort (tie-breaker, e.g., for received messages with timestamp 0):
+    // Confirmations ascending (more confirmations = older, comes later in descending sort)
+    // This maintains relative order for messages potentially received in the same block
+    if (a.direction === 'received' && b.direction === 'received') {
+        return a.confirmations - b.confirmations; 
+    }
+
+    // If timestamps are identical and not both received, maintain original order (or arbitrary)
+    return 0;
   }
 
   // --- Event Handlers ---
@@ -194,26 +201,73 @@
     // if (!messages[selectedConversationId]) { fetchAndSetMessages(selectedConversationId); }
   }
 
-  function handleSendMessage(event: CustomEvent<{ message: string; amount?: number }>) {
+  async function handleSendMessage(event: CustomEvent<{ message: string; amount?: number }>) {
+    const { message: messageText, amount } = event.detail;
     console.log("ChatInterface: Send message request", event.detail);
-    if (selectedConversationId && loggedInIdentity) {
-      const newMessage: ChatMessage = {
-          id: `msg-${Date.now()}`,
-          sender: 'self',
-          text: event.detail.message,
-          timestamp: Date.now(),
-          status: 'sent',
-          amount: event.detail.amount || 0,
-          confirmations: 0,
-          direction: 'sent'
-      };
-       // Optimistic update
-      const currentList = messages[selectedConversationId] || [];
-      currentList.push(newMessage);
-      currentList.sort(compareMessages); // Sort after adding
-      messages[selectedConversationId] = currentList;
-      messages = { ...messages };
-       // TODO: Send message to backend
+
+    // Ensure we have all necessary info
+    if (!selectedConversationId || !loggedInIdentity || !loggedInUserPrivateAddress || !loggedInUserIdentityName) {
+        console.error("ChatInterface: Cannot send message. Missing required data (selected convo ID, logged-in identity/address).");
+        return;
+    }
+
+    // Find the recipient's private address from the conversation data
+    const recipientConversation = conversations.find(c => c.id === selectedConversationId);
+    if (!recipientConversation || !recipientConversation.recipient_private_address) {
+        console.error(`ChatInterface: Cannot send message. Recipient private address not found for conversation ${selectedConversationId}.`);
+        return;
+    }
+    const recipientPrivateAddress = recipientConversation.recipient_private_address;
+
+    // 1. Optimistic Update
+    const newMessage: ChatMessage = {
+        id: `msg-${Date.now()}-${Math.random()}`, // Temporary unique ID
+        sender: 'self',
+        text: messageText,
+        timestamp: Date.now(),
+        status: 'sent', // Initial optimistic status
+        amount: amount || 0,
+        confirmations: 0,
+        direction: 'sent'
+    };
+
+    // Get the current list or start with an empty array
+    const currentList = messages[selectedConversationId] || [];
+    // Create a *new* array with the new message added
+    const newList = [...currentList, newMessage];
+    // Sort the new array
+    newList.sort(compareMessages);
+    
+    // Assign the new sorted array back to the specific conversation ID
+    messages[selectedConversationId] = newList;
+    // Trigger top-level reactivity by creating a new messages object reference
+    messages = { ...messages }; 
+
+    console.log(`ChatInterface: Optimistically updated messages state for ${selectedConversationId}. New message ID: ${newMessage.id}`);
+
+    // 2. Call Backend
+    try {
+        console.log("ChatInterface: Invoking send_private_message backend command...");
+        const txid = await invoke<string>('send_private_message', {
+            senderZAddress: loggedInUserPrivateAddress,
+            recipientZAddress: recipientPrivateAddress,
+            memoText: messageText,
+            senderIdentity: loggedInUserIdentityName, // e.g., user@
+            amount: amount || 0, 
+        });
+        console.log(`ChatInterface: Message sent successfully via backend. TXID: ${txid}`);
+        // TODO: Potentially update message status with txid or mark as confirmed later
+    } catch (error) {
+        console.error("ChatInterface: Error sending message via backend:", error);
+        // TODO: Revert optimistic update or mark message as failed
+        // For now, just log the error
+        // Example: Find the message by its temporary ID and update its status
+        const optimisticMessageIndex = messages[selectedConversationId]?.findIndex(m => m.id === newMessage.id);
+        if (optimisticMessageIndex !== undefined && optimisticMessageIndex > -1) {
+            messages[selectedConversationId][optimisticMessageIndex].status = 'failed';
+            messages = { ...messages }; // Trigger reactivity to show potential failure
+            console.log(`ChatInterface: Marked optimistic message ${newMessage.id} as failed.`);
+        }
     }
   }
 
@@ -227,35 +281,45 @@
   }
 
   function handleStartChat(event: CustomEvent<{ identity: FormattedIdentity; history?: ChatMessage[] }>) {
-      const { identity, history } = event.detail;
-      const newConversationId = identity.formatted_name; 
-      console.log(`ChatInterface: Start chat event received for ${newConversationId}`, history);
+    const { identity, history } = event.detail;
+    const newConversationId = identity.formatted_name; // Use the unique formatted name as ID
+    console.log(`ChatInterface: Start chat event received for ${newConversationId}`, identity);
 
-      // 1. Add conversation
-      if (!conversations.some(c => c.id === newConversationId)) {
-          conversations = [
-              ...conversations,
-              { id: newConversationId, name: identity.formatted_name, unread: false }
-          ];
-      }
+    // Check if recipient has a private address (essential for sending back)
+    if (!identity.private_address) {
+        console.error(`ChatInterface: Cannot start chat with ${newConversationId}, recipient has no private address.`);
+        // TODO: Show an error to the user in the modal or here?
+        return; // Prevent adding conversation
+    }
 
-      // 2. Add/Merge history messages
-      const existingMessages = messages[newConversationId] || [];
-      let mergedMessages = existingMessages;
-      if (history && history.length > 0) {
-          const existingIds = new Set(existingMessages.map(m => m.id));
-          const newHistoryMessages = history.filter(hm => !existingIds.has(hm.id));
-          mergedMessages = [...newHistoryMessages, ...existingMessages];
-      }
-      // Sort after merging
-      messages[newConversationId] = mergedMessages.sort(compareMessages);
-      messages = { ...messages };
+    // 1. Add conversation (if it doesn't exist)
+    if (!conversations.some(c => c.id === newConversationId)) {
+        const newConversation: Conversation = {
+            id: newConversationId,
+            name: identity.formatted_name,
+            recipient_private_address: identity.private_address, // Store recipient's address
+            unread: false
+        };
+        conversations = [...conversations, newConversation];
+        console.log(`ChatInterface: Added new conversation:`, newConversation);
+    }
 
-      // 3. Select the new conversation
-      selectedConversationId = newConversationId;
+    // 2. Add/Merge history messages
+    const existingMessages = messages[newConversationId] || [];
+    let mergedMessages = existingMessages;
+    if (history && history.length > 0) {
+        const existingIds = new Set(existingMessages.map(m => m.id));
+        const newHistoryMessages = history.filter(hm => !existingIds.has(hm.id));
+        mergedMessages = [...newHistoryMessages, ...existingMessages];
+    }
+    messages[newConversationId] = mergedMessages.sort(compareMessages);
+    messages = { ...messages }; // Trigger reactivity for messages
 
-      // 4. Close modal
-      showNewChatModal = false;
+    // 3. Select the new conversation
+    selectedConversationId = newConversationId;
+
+    // 4. Close modal
+    showNewChatModal = false;
   }
 
   function handleLogout() {

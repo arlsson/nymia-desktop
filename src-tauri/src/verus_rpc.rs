@@ -11,10 +11,13 @@
 // - Added get_chat_history function for New Chat flow.
 // - Added ChatMessage struct.
 // - Added NotFoundOrIneligible and InvalidFormat error variants to VerusRpcError.
+// - Added send_private_message function to send messages/gifts via z_sendmany.
+// - Added hex crate import.
 
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use std::time::Duration;
+use hex; // Added for memo encoding
 
 // Define structs for the JSON-RPC request and response
 #[derive(Deserialize, Debug)]
@@ -293,19 +296,49 @@ pub async fn check_identity_eligibility(
                     .map(String::from);
 
                 if private_address_opt.is_some() {
-                    if let (Some(name), Some(i_address)) = (
+                    if let (Some(name), Some(i_address), Some(parent_id), Some(system_id)) = (
                         identity_details.get("name").and_then(|v| v.as_str()),
                         identity_details.get("identityaddress").and_then(|v| v.as_str()),
+                        identity_details.get("parent").and_then(|v| v.as_str()),
+                        identity_details.get("systemid").and_then(|v| v.as_str()),
                     ) {
-                        let formatted_name = format!("{}@", name);
-                        log::info!("Identity {} is eligible.", target_identity_name);
+                        // Start with default format
+                        let mut formatted_name = format!("{}@", name);
+                        
+                        // Check if it's a sub-ID (parent is not the system ID)
+                        if parent_id != system_id {
+                            log::debug!("Identity '{}' is a sub-ID. Fetching parent '{}'...", name, parent_id);
+                            // Get parent identity to format the name properly (name.parentname@)
+                            match make_rpc_call::<Value>(&rpc_user, &rpc_pass, "getidentity", vec![json!(parent_id)]).await {
+                                Ok(parent_identity_result) => {
+                                    // Extract parent name from the parent identity details
+                                    if let Some(parent_name) = parent_identity_result
+                                        .get("identity")
+                                        .and_then(|id_details| id_details.get("name"))
+                                        .and_then(|n| n.as_str()) 
+                                    {
+                                        log::debug!("Parent name found: {}", parent_name);
+                                        formatted_name = format!("{}.{}@", name, parent_name);
+                                    } else {
+                                        log::error!("Failed to extract parent name for sub-ID. Using default format.");
+                                        // Keep default format as fallback
+                                    }
+                                },
+                                Err(e) => {
+                                    log::error!("Error fetching parent identity: {:?}. Using default format.", e);
+                                    // Keep default format as fallback
+                                }
+                            }
+                        }
+                        
+                        log::info!("Identity {} is eligible. Formatted as: {}", target_identity_name, formatted_name);
                         Ok(FormattedIdentity {
                             formatted_name,
                             i_address: i_address.to_string(),
                             private_address: private_address_opt,
                         })
                     } else {
-                        log::warn!("Identity {} found but missing name or i-address details.", target_identity_name);
+                        log::warn!("Identity {} found but missing required fields.", target_identity_name);
                         Err(VerusRpcError::NotFoundOrIneligible)
                     }
                 } else {
@@ -426,25 +459,30 @@ pub async fn get_new_received_messages(
                 let message_text = memostr[..marker_pos].trim();
                 let sender_id = memostr[marker_pos + marker.len()..].trim();
 
-                // Basic validation for sender ID format
-                if sender_id.ends_with('@') && sender_id.len() > 1 && !message_text.is_empty() {
+                // FIX: Updated validation to allow empty message text if amount > 0
+                let is_valid_sender = sender_id.ends_with('@') && sender_id.len() > 1;
+                let has_message_content = !message_text.is_empty();
+                let has_gift_amount = tx.amount > 0.0;
+                
+                if is_valid_sender && (has_message_content || has_gift_amount) {
                     log::debug!(
-                        "Found potential message in tx {}: '{}' from sender '{}'",
+                        "Found valid message/gift in tx {}: '{}' from sender '{}', amount: {}",
                         tx.txid,
-                        message_text,
-                        sender_id
+                        message_text, // Will be empty string if no text
+                        sender_id,
+                        tx.amount
                     );
                     chat_messages.push(ChatMessage {
                         id: tx.txid,
                         sender: sender_id.to_string(), // Sender identified from memo
-                        text: message_text.to_string(),
+                        text: message_text.to_string(), // Correctly handles empty string
                         timestamp: 0, // Placeholder - confirmations are primary
                         amount: tx.amount,
                         confirmations: tx.confirmations,
                         direction: "received".to_string(),
                     });
                 } else {
-                    log::trace!("Skipping memo in tx {} due to invalid format: {}", tx.txid, memostr);
+                    log::trace!("Skipping memo in tx {} due to invalid format or no content/gift: {}", tx.txid, memostr);
                 }
             } else {
                 log::trace!("Skipping memo in tx {} (no valid marker): {}", tx.txid, memostr);
@@ -456,4 +494,65 @@ pub async fn get_new_received_messages(
     // No sorting needed here, frontend will handle merging and sorting
 
     Ok(chat_messages)
+}
+
+// NEW function for sending a message/gift
+pub async fn send_private_message(
+    rpc_user: String,
+    rpc_pass: String,
+    sender_z_address: String,      // Logged-in user's private address
+    recipient_z_address: String, // Target user's private address
+    memo_text: String,             // The actual message content (optional)
+    sender_identity: String,       // Logged-in user's VerusID (e.g., user@)
+    amount: f64                    // Amount to send (0 if just a message)
+) -> Result<String, VerusRpcError> // Returns the txid on success
+{
+    log::info!(
+        "Attempting to send message/gift: from_addr={}, to_addr={}, amount={}, sender_id={}",
+        sender_z_address,
+        recipient_z_address,
+        amount,
+        sender_identity
+    );
+    log::debug!("Original memo text: \"{}\"", memo_text);
+
+    // 1. Construct the full memo string
+    let full_memo = format!("{}//f//{}", memo_text, sender_identity);
+    log::debug!("Constructed memo string: \"{}\"", full_memo);
+
+    // 2. Convert the memo string to its hexadecimal representation
+    // Ensure the memo is not too long - z_sendmany memo limit is typically 512 bytes.
+    // Hex encoding doubles the length, so the original memo should be < 256 bytes.
+    // The frontend already limits input to 412 characters, which is safe.
+    let memo_hex = hex::encode(full_memo.as_bytes());
+    log::debug!("Hex encoded memo: {}", memo_hex);
+
+    // 3. Construct the parameters for the z_sendmany RPC call
+    let amounts_param = json!([
+        {
+            "address": recipient_z_address,
+            "amount": amount,
+            "memo": memo_hex
+        }
+    ]);
+
+    let params = vec![
+        json!(sender_z_address),
+        amounts_param,
+        json!(1), // minconf (optional, default 1)
+        // fee (optional, default 0.0001) - Daemon handles this
+    ];
+
+    // 4. Make the RPC call
+    log::info!("Executing z_sendmany...");
+    match make_rpc_call::<String>(&rpc_user, &rpc_pass, "z_sendmany", params).await {
+        Ok(txid) => {
+            log::info!("z_sendmany successful, txid: {}", txid);
+            Ok(txid)
+        }
+        Err(e) => {
+            log::error!("z_sendmany failed: {:?}", e);
+            Err(e)
+        }
+    }
 } 

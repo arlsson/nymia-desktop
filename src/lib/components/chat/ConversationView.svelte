@@ -13,6 +13,8 @@
 // - Imported and used formatRelativeTimeFromConfirmations utility.
 // - Updated message type definition to match ChatMessage from types.ts
 // - Added privateBalance prop to pass down to MessageInput.
+// - Added debug log to reactive block checking messages prop.
+// - Added simpler gift display for sent messages.
 
   import { createEventDispatcher, tick } from 'svelte';
   import MessageInput from './MessageInput.svelte';
@@ -43,6 +45,8 @@
 
   // Scroll to bottom when messages change or contact changes
   $: if (messages || contactName) {
+      // DEBUG LOG:
+      console.log(`ConversationView: messages prop updated or contact changed. Message count: ${messages?.length ?? 0}. Scrolling to bottom.`);
       scrollToBottom();
   }
 
@@ -58,9 +62,9 @@
 
 <div class="flex flex-col h-full bg-gray-50">
   {#if contactName}
-    <!-- Chat Header -->
+    <!-- Chat Header with improved name display -->
     <div class="flex items-center h-[50px] px-3 bg-white border-b border-gray-200 flex-shrink-0 shadow-sm">
-      <span class="font-medium text-base text-gray-800">{contactName}</span>
+      <span class="font-medium text-base text-gray-800 truncate max-w-[80%]">{contactName}</span>
       <!-- Add other header elements like contact info button later -->
     </div>
 
@@ -101,6 +105,19 @@
                            </div>
                         </div>
                      </div>
+                <!-- Simple Gift Display for Sent Messages (no animation) -->
+                {:else if message.direction === 'sent' && message.amount > 0}
+                    <div class="flex items-center mb-2.5 bg-[#E0F0E9] p-2 rounded-md">
+                        <div class="p-1 bg-[#419A6A] rounded-full mr-2 text-white flex-shrink-0">
+                            <Gift size={14} />
+                        </div>
+                        <div>
+                            <span class="text-xs font-medium text-gray-700">You sent a gift</span>
+                            <span class="text-sm font-semibold text-[#419A6A] block">
+                                {message.amount.toFixed(8)} VRSC
+                            </span>
+                        </div>
+                    </div>
                 {/if}
                 
                 <!-- Message Text -->

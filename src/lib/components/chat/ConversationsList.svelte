@@ -63,7 +63,7 @@
             class={`w-full text-left px-3 py-2 flex items-center justify-between hover:bg-gray-50 transition-colors duration-100 
             ${selectedConversationId === conversation.id ? 'bg-gray-100 border-l-2 border-l-[#419A6A]' : 'border-b border-gray-50'}`}
           >
-            <span class="text-sm text-gray-700 truncate">
+            <span class="text-sm text-gray-700 truncate max-w-[85%]">
               {conversation.name}
             </span>
             {#if conversation.unread}

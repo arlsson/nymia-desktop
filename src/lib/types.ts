@@ -3,6 +3,7 @@
 // Changes:
 // - Added ChatMessage type for imported history.
 // - Added optional 'status' field to ChatMessage.
+// - Added Conversation type, including recipient_private_address.
 
 // Credentials for Verus RPC connection
 export interface Credentials {
@@ -49,4 +50,12 @@ export interface ChatMessage {
     confirmations: number;
     direction: 'received' | 'sent'; // Initially only 'received' from history
     status?: 'sent' | 'delivered' | 'failed'; // Optional delivery status for sent messages
-} 
+}
+
+// Structure for conversation entries in the list
+export type Conversation = {
+    id: string;         // Unique ID, typically the recipient's VerusID name (e.g., user@)
+    name: string;       // Display name (VerusID name)
+    recipient_private_address: string; // The recipient's z-address needed for sending
+    unread?: boolean;   // Optional flag for unread messages
+  }; 

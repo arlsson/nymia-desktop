@@ -7,6 +7,7 @@
 // - Added connect_verus_daemon command to interact with Verus RPC.
 // - Registered tauri-plugin-secure-store.
 // - Updated invoke_handler to include all commands.
+// - Added send_private_message command.
 
 mod verus_rpc;
 mod credentials; // Added credentials module
@@ -128,6 +129,36 @@ async fn get_new_received_messages(
         .map_err(CommandError::from)
 }
 
+// NEW Command: Send Private Message/Gift
+#[tauri::command]
+async fn send_private_message(
+    app: tauri::AppHandle,
+    sender_z_address: String,
+    recipient_z_address: String,
+    memo_text: String,
+    sender_identity: String,
+    amount: f64,
+) -> Result<String, CommandError> { // Returns txid
+    log::info!(
+        "send_private_message command received: to={}, amount={}, sender_id={}",
+        recipient_z_address,
+        amount,
+        sender_identity
+    );
+    let creds = credentials::load_credentials(app).await?;
+    verus_rpc::send_private_message(
+        creds.rpc_user,
+        creds.rpc_pass,
+        sender_z_address,
+        recipient_z_address,
+        memo_text,
+        sender_identity,
+        amount,
+    )
+    .await
+    .map_err(CommandError::from)
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     // TODO: Initialize logger here instead of in command
@@ -147,7 +178,8 @@ pub fn run() {
             get_private_balance, // Add the new balance command
             check_identity_eligibility,
             get_chat_history,
-            get_new_received_messages
+            get_new_received_messages,
+            send_private_message // Added send message command
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

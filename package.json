@@ -16,6 +16,7 @@
     "@rollup/rollup-darwin-arm64": "^4.40.0",
     "@tauri-apps/api": "^2.5.0",
     "@tauri-apps/plugin-opener": "^2",
+    "@tauri-apps/plugin-store": "^2.2.0",
     "lucide-svelte": "^0.503.0"
   },
   "devDependencies": {
