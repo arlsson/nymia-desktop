@@ -388,4 +388,72 @@ pub async fn get_chat_history(
     chat_messages.sort_by_key(|m| m.confirmations); // Example: sort by confirmations ascending
 
     Ok(chat_messages)
+}
+
+// NEW function for polling new received messages (for ANY sender)
+pub async fn get_new_received_messages(
+    rpc_user: String,
+    rpc_pass: String,
+    own_private_address: String, // The logged-in user's z-addr
+) -> Result<Vec<ChatMessage>, VerusRpcError> {
+    log::info!("Polling for new received messages for owner {}", own_private_address);
+
+    // Call with 0 confirmations to include unconfirmed messages
+    let params = vec![json!(own_private_address), json!(0)]; 
+    let received_txs: Vec<ReceivedByAddressEntry> = match make_rpc_call(
+        &rpc_user,
+        &rpc_pass,
+        "z_listreceivedbyaddress",
+        params,
+    ).await {
+        Ok(txs) => txs,
+        Err(VerusRpcError::Rpc { code, message }) if code == -8 => {
+            // Handle potential error if address has never received anything
+            log::warn!("z_listreceivedbyaddress RPC error (potentially no transactions yet) for {}: code={}, message={}", own_private_address, code, message);
+            Vec::new() // Return empty list if address is unused/error indicates no transactions
+        },
+        Err(e) => return Err(e), // Propagate other errors
+    };
+
+    log::debug!("Received {} total transactions (including unconfirmed) for address {}", received_txs.len(), own_private_address);
+
+    let mut chat_messages = Vec::new();
+    let marker = "//f//"; // General marker to find sender
+
+    for tx in received_txs {
+        if let Some(memostr) = tx.memostr {
+            if let Some(marker_pos) = memostr.find(marker) {
+                let message_text = memostr[..marker_pos].trim();
+                let sender_id = memostr[marker_pos + marker.len()..].trim();
+
+                // Basic validation for sender ID format
+                if sender_id.ends_with('@') && sender_id.len() > 1 && !message_text.is_empty() {
+                    log::debug!(
+                        "Found potential message in tx {}: '{}' from sender '{}'",
+                        tx.txid,
+                        message_text,
+                        sender_id
+                    );
+                    chat_messages.push(ChatMessage {
+                        id: tx.txid,
+                        sender: sender_id.to_string(), // Sender identified from memo
+                        text: message_text.to_string(),
+                        timestamp: 0, // Placeholder - confirmations are primary
+                        amount: tx.amount,
+                        confirmations: tx.confirmations,
+                        direction: "received".to_string(),
+                    });
+                } else {
+                    log::trace!("Skipping memo in tx {} due to invalid format: {}", tx.txid, memostr);
+                }
+            } else {
+                log::trace!("Skipping memo in tx {} (no valid marker): {}", tx.txid, memostr);
+            }
+        } // Ignore transactions without memos
+    }
+
+    log::info!("Parsed {} potential messages from polling.", chat_messages.len());
+    // No sorting needed here, frontend will handle merging and sorting
+
+    Ok(chat_messages)
 } 

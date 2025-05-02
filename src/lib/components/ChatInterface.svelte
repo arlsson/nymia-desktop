@@ -5,8 +5,13 @@
 // Changes:
 // - Removed mock data initialization for conversations and messages.
 // - Initialized conversations and messages state as empty.
+// - Added periodic polling for new messages using setInterval.
+// - Implemented message merging logic, preventing duplicates.
+// - Added unread indicator logic for conversations.
+// - Refined sorting logic to prioritize confirmations for received messages.
 
-  import { createEventDispatcher } from 'svelte';
+  import { createEventDispatcher, onMount, onDestroy } from 'svelte';
+  import { invoke } from '@tauri-apps/api/core';
   import TopBar from './chat/TopBar.svelte';
   import ConversationsList from './chat/ConversationsList.svelte';
   import ConversationView from './chat/ConversationView.svelte';
@@ -17,6 +22,9 @@
   export let loggedInIdentity: FormattedIdentity | null = null; // Received from parent (+page.svelte)
   export let blockHeight: number | null = null; // Received from parent (+page.svelte)
   export let privateBalance: PrivateBalance = null; // Use the new type alias
+
+  // --- Constants ---
+  const POLLING_INTERVAL_MS = 30000; // 30 seconds
 
   // --- Event dispatcher ---
   const dispatch = createEventDispatcher<{
@@ -37,10 +45,138 @@
   // --- Data State (Initialized Empty) ---
   let conversations: Conversation[] = [];
   let messages: { [conversationId: string]: ChatMessage[] } = {};
+  let pollingIntervalId: ReturnType<typeof setInterval> | null = null;
+  let isPolling = false; // Prevent overlapping polls
 
   // --- Computed State ---
   $: existingConversationIds = conversations.map(c => c.id.toLowerCase());
   $: loggedInUserPrivateAddress = loggedInIdentity?.private_address;
+
+  // --- Lifecycle ---
+  onMount(() => {
+      startPolling();
+      // TODO: Fetch initial conversations and messages here
+  });
+
+  onDestroy(() => {
+      stopPolling();
+  });
+
+  // --- Polling Logic ---
+  function startPolling() {
+      stopPolling(); // Ensure no duplicate intervals
+      if (loggedInUserPrivateAddress) {
+          console.log(`ChatInterface: Starting message polling every ${POLLING_INTERVAL_MS / 1000}s`);
+          fetchNewMessages(); // Initial fetch
+          pollingIntervalId = setInterval(fetchNewMessages, POLLING_INTERVAL_MS);
+      } else {
+          console.warn("ChatInterface: Cannot start polling, logged in user private address not available.");
+      }
+  }
+
+  function stopPolling() {
+      if (pollingIntervalId) {
+          console.log("ChatInterface: Stopping message polling.");
+          clearInterval(pollingIntervalId);
+          pollingIntervalId = null;
+      }
+      isPolling = false;
+  }
+
+  async function fetchNewMessages() {
+      if (!loggedInUserPrivateAddress || isPolling) {
+          if (isPolling) console.log("ChatInterface: Skipping poll, already fetching.");
+          return; 
+      }
+      
+      isPolling = true;
+      console.log("ChatInterface: Polling for new messages...");
+      
+      try {
+          const newMessages = await invoke<ChatMessage[]>('get_new_received_messages', { 
+              ownPrivateAddress: loggedInUserPrivateAddress 
+          });
+          
+          console.log(`ChatInterface: Received ${newMessages.length} potential new messages from poll.`);
+          if (newMessages.length > 0) {
+              processNewMessages(newMessages);
+          }
+
+      } catch (error) {
+          console.error("ChatInterface: Error polling for new messages:", error);
+          // Consider stopping polling on certain errors? Or just log?
+      } finally {
+          isPolling = false;
+      }
+  }
+
+  function processNewMessages(newMessages: ChatMessage[]) {
+      let messagesUpdated = false;
+      let conversationsUpdated = false;
+      const currentMessages = { ...messages }; // Clone to modify
+
+      for (const newMessage of newMessages) {
+          const senderId = newMessage.sender; // Sender ID from memo
+          
+          // Check if we have an existing conversation with this sender
+          const convoIndex = conversations.findIndex(c => c.id === senderId);
+          if (convoIndex !== -1) {
+              // Conversation exists, check if message is new
+              const currentList = currentMessages[senderId] || [];
+              const existingMsgIndex = currentList.findIndex(m => m.id === newMessage.id);
+              
+              if (existingMsgIndex === -1) {
+                  // New message for this known conversation
+                  console.log(`ChatInterface: Adding new message ${newMessage.id} from ${senderId}`);
+                  currentList.push(newMessage);
+                  currentMessages[senderId] = currentList; // Update the list in our temporary object
+                  messagesUpdated = true;
+
+                  // Mark conversation as unread if it's not the currently selected one
+                  if (senderId !== selectedConversationId) {
+                      if (!conversations[convoIndex].unread) {
+                           console.log(`ChatInterface: Marking conversation ${senderId} as unread.`);
+                           conversations[convoIndex].unread = true;
+                           conversationsUpdated = true;
+                      }
+                  }
+              } else {
+                 // Message already exists, potentially update confirmations if needed (optional)
+                 if (currentList[existingMsgIndex].confirmations !== newMessage.confirmations) {
+                     console.log(`ChatInterface: Updating confirmations for message ${newMessage.id} from ${senderId}`);
+                     currentList[existingMsgIndex].confirmations = newMessage.confirmations;
+                     messagesUpdated = true; // Mark as updated if confirmations changed
+                 }
+              }
+          } else {
+              // Conversation does not exist, ignore message as per requirements
+              // console.log(`ChatInterface: Ignoring message ${newMessage.id} from unknown sender ${senderId}`);
+          }
+      }
+
+      if (messagesUpdated) {
+          // Sort affected conversations after adding/updating messages
+          Object.keys(currentMessages).forEach(convoId => {
+              currentMessages[convoId].sort(compareMessages);
+          });
+          messages = currentMessages; // Assign the updated object back to trigger reactivity
+          console.log("ChatInterface: Messages state updated.");
+      }
+      if (conversationsUpdated) {
+          conversations = [...conversations]; // Trigger reactivity for conversations list
+          console.log("ChatInterface: Conversations state updated (unread).", conversations);
+      }
+  }
+
+  // Comparison function for sorting messages
+  function compareMessages(a: ChatMessage, b: ChatMessage): number {
+     // Prioritize confirmations for received messages if timestamps are placeholder (0)
+     if (a.direction === 'received' && b.direction === 'received' && a.timestamp === 0 && b.timestamp === 0) {
+         return a.confirmations - b.confirmations; // Sort by confirmations ascending
+     }
+     // Fallback to timestamp sorting
+     return a.timestamp - b.timestamp;
+  }
 
   // --- Event Handlers ---
   function handleSelectConversation(event: CustomEvent<{ conversationId: string }>) {
@@ -48,11 +184,14 @@
     console.log("ChatInterface: Selected conversation", selectedConversationId);
     const convoIndex = conversations.findIndex(c => c.id === selectedConversationId);
     if (convoIndex !== -1) {
-      conversations[convoIndex].unread = false;
-      conversations = [...conversations]; // Trigger reactivity
+      // Mark as read when selected
+      if (conversations[convoIndex].unread) {
+          conversations[convoIndex].unread = false;
+          conversations = [...conversations]; // Trigger reactivity
+      }
     }
-    // TODO: Fetch messages for the selected conversation
-    // messages[selectedConversationId] = await fetchMessages(selectedConversationId);
+    // TODO: Fetch initial messages if not already loaded
+    // if (!messages[selectedConversationId]) { fetchAndSetMessages(selectedConversationId); }
   }
 
   function handleSendMessage(event: CustomEvent<{ message: string; amount?: number }>) {
@@ -63,19 +202,18 @@
           sender: 'self',
           text: event.detail.message,
           timestamp: Date.now(),
-          status: 'sent', // This will eventually be updated based on backend response
+          status: 'sent',
           amount: event.detail.amount || 0,
           confirmations: 0,
           direction: 'sent'
       };
-       // Optimistic update (add immediately to UI)
-      messages[selectedConversationId] = [
-          ...(messages[selectedConversationId] || []),
-          newMessage
-      ];
-      messages = { ...messages }; // Trigger reactivity
-       // TODO: Send message to backend and update status on confirmation/error
-       // sendMessageToBackend(selectedConversationId, newMessage);
+       // Optimistic update
+      const currentList = messages[selectedConversationId] || [];
+      currentList.push(newMessage);
+      currentList.sort(compareMessages); // Sort after adding
+      messages[selectedConversationId] = currentList;
+      messages = { ...messages };
+       // TODO: Send message to backend
     }
   }
 
@@ -90,10 +228,10 @@
 
   function handleStartChat(event: CustomEvent<{ identity: FormattedIdentity; history?: ChatMessage[] }>) {
       const { identity, history } = event.detail;
-      const newConversationId = identity.formatted_name; // Assuming formatted_name is the desired display ID
+      const newConversationId = identity.formatted_name; 
       console.log(`ChatInterface: Start chat event received for ${newConversationId}`, history);
 
-      // 1. Add conversation if it doesn't exist
+      // 1. Add conversation
       if (!conversations.some(c => c.id === newConversationId)) {
           conversations = [
               ...conversations,
@@ -101,18 +239,17 @@
           ];
       }
 
-      // 2. Add history messages if provided
+      // 2. Add/Merge history messages
       const existingMessages = messages[newConversationId] || [];
       let mergedMessages = existingMessages;
       if (history && history.length > 0) {
-          // More robust merge: Add history only if message ID doesn't exist
           const existingIds = new Set(existingMessages.map(m => m.id));
           const newHistoryMessages = history.filter(hm => !existingIds.has(hm.id));
           mergedMessages = [...newHistoryMessages, ...existingMessages];
       }
-      // Sort all messages after merging
-      messages[newConversationId] = mergedMessages.sort((a, b) => a.timestamp - b.timestamp);
-      messages = { ...messages }; // Trigger reactivity
+      // Sort after merging
+      messages[newConversationId] = mergedMessages.sort(compareMessages);
+      messages = { ...messages };
 
       // 3. Select the new conversation
       selectedConversationId = newConversationId;
@@ -123,12 +260,13 @@
 
   function handleLogout() {
       console.log("ChatInterface: Logout requested");
-      dispatch('logout'); // Dispatch event to parent (+page.svelte)
+      stopPolling(); // Stop polling on logout
+      dispatch('logout'); 
   }
     
   function handleRefresh() {
       console.log("ChatInterface: Refresh requested");
-      // TODO: Implement logic to fetch new conversations/messages
+      fetchNewMessages(); // Trigger manual refresh
   }
     
   function handleSettings() {
@@ -171,6 +309,7 @@
       <ConversationView 
         contactName={selectedContactName}
         messages={selectedMessages}
+        privateBalance={privateBalance}
         on:sendMessage={handleSendMessage}
       />
     </div>

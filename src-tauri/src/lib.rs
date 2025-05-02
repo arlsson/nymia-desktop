@@ -115,6 +115,19 @@ async fn get_chat_history(
         .map_err(CommandError::from)
 }
 
+// NEW Command: Get New Received Messages (Polling)
+#[tauri::command]
+async fn get_new_received_messages(
+    app: tauri::AppHandle,
+    own_private_address: String,
+) -> Result<Vec<ChatMessage>, CommandError> {
+    log::info!("get_new_received_messages command received for owner: {}", own_private_address);
+    let creds = credentials::load_credentials(app).await?;
+    verus_rpc::get_new_received_messages(creds.rpc_user, creds.rpc_pass, own_private_address)
+        .await
+        .map_err(CommandError::from)
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     // TODO: Initialize logger here instead of in command
@@ -133,7 +146,8 @@ pub fn run() {
             get_login_identities, // Correct name used here
             get_private_balance, // Add the new balance command
             check_identity_eligibility,
-            get_chat_history
+            get_chat_history,
+            get_new_received_messages
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

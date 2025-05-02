@@ -12,10 +12,11 @@
 // - Added relative time display using confirmations for historical messages.
 // - Imported and used formatRelativeTimeFromConfirmations utility.
 // - Updated message type definition to match ChatMessage from types.ts
+// - Added privateBalance prop to pass down to MessageInput.
 
   import { createEventDispatcher, tick } from 'svelte';
   import MessageInput from './MessageInput.svelte';
-  import type { ChatMessage } from '$lib/types'; // Import ChatMessage type
+  import type { ChatMessage, PrivateBalance } from '$lib/types'; // Import ChatMessage & PrivateBalance types
   import { formatRelativeTimeFromConfirmations } from '$lib/utils/timeFormatter'; // Import utility
   // Update imports to remove ArrowDown
   import { Gift } from 'lucide-svelte';
@@ -26,6 +27,7 @@
   // --- Props ---
   export let contactName: string | null = null;
   export let messages: Message[] = [];
+  export let privateBalance: PrivateBalance = null; // Add privateBalance prop
 
   // --- State ---
   let chatContainer: HTMLElement;
@@ -89,7 +91,8 @@
                                </div>
                                <div class="flex flex-col">
                                    <span class="text-xs font-semibold text-gray-700">
-                                       You received a gift!
+                                       <!-- Updated Text -->
+                                       {message.sender} sent you a gift!
                                    </span>
                                    <span class="text-sm font-bold bg-clip-text text-transparent bg-gradient-to-r from-purple-600 via-blue-600 to-pink-600">
                                        {message.amount.toFixed(8)} VRSC
@@ -137,7 +140,10 @@
 
     <!-- Message Input Area -->
     <div class="flex-shrink-0 bg-white border-t border-gray-200">
-      <MessageInput on:sendMessage={handleSendMessage} />
+      <MessageInput 
+        {privateBalance}  
+        on:sendMessage={handleSendMessage} 
+      />
     </div>
 
   {:else}
