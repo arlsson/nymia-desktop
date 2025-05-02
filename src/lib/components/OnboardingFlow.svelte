@@ -8,10 +8,12 @@
 // - Updated step navigation to include the welcome step
 // - Modified button logic to handle welcome step
 // - Added WelcomeStep component import and rendering
+// - Added image to the right panel with left side visible
+// - Added fade-in animation (fly from right) for the right panel image
 
   import { createEventDispatcher, onMount } from 'svelte';
   import { invoke } from '@tauri-apps/api/core';
-  import { slide } from 'svelte/transition';
+  import { slide, fly } from 'svelte/transition';
   import { quintOut } from 'svelte/easing';
 
   // Import Step Components
@@ -47,6 +49,9 @@
   let currentCredentialsFromChild: Credentials | null = initialCredentials; // Track latest from CredentialsStep
   let connectionTestedSuccessfully = false; // Track if connection test passed in CredentialsStep
 
+  // Visibility state for right panel image animation
+  let imageVisible = false;
+
   // Blockchain Step specific state
   let selectedBlockchain = 'verus-testnet'; // Only option for now
   const blockchainOptions: DropdownOption[] = [
@@ -64,6 +69,13 @@
   }>();
 
   // --- Lifecycle & State Management ---
+  onMount(() => {
+    // Trigger image animation shortly after component mounts
+    setTimeout(() => {
+      imageVisible = true;
+    }, 300); // 300ms delay
+  });
+
   // Update internal credentials if initialCredentials prop changes (e.g., on logout/restart)
   $: if (initialCredentials && (initialCredentials.rpc_user !== rpcUser || initialCredentials.rpc_pass !== rpcPassword)) {
       console.log("OnboardingFlow: initialCredentials prop changed, updating internal state.");
@@ -304,6 +316,17 @@
         >
         </div>
      
+        <!-- App image with left portion visible -->
+        <div class="absolute inset-0 flex items-center">
+            {#if imageVisible}
+              <img 
+                  src="src/lib/assets/app-img.webp" 
+                  alt="Application preview" 
+                  class="app-image"
+                  transition:fly={{ x: 50, duration: 1200, delay: 100, easing: quintOut }}
+              />
+            {/if}
+        </div>
          
         <div 
             class="absolute bottom-1/4 right-0 w-full h-full bg-gradient-radial from-black to-transparent opacity-10 rounded-full filter blur-3xl animate-float-slow"
@@ -356,6 +379,16 @@
   
   .bg-gradient-radial {
     background-image: radial-gradient(circle, var(--tw-gradient-from) 0%, transparent 70%);
+  }
+
+  /* App image styling to show only left portion */
+  .app-image {
+    height: 80%; /* Fill the container height */
+    width: auto;
+    object-fit: cover; /* Fill container, crop if needed */
+    object-position: left center; /* Keep left edge visible, vertically centered */
+    position: relative;
+    transform: translateX(10%);
   }
 
   /* Other styles */
