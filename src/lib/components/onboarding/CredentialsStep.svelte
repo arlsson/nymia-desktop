@@ -92,16 +92,19 @@
     <h1 class="text-2xl font-semibold text-gray-800 mb-1">Enter Credentials</h1>
     <p class="text-gray-600 text-normal mb-3">Enter the RPC credentials for your Verus daemon.</p>
     
-    <div class="flex items-center mb-2">
-        <a href="#" target="_blank" rel="noopener noreferrer" class="inline-flex items-center text-sm text-green-600 hover:text-green-700 transition-colors duration-150">
-            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-            </svg>
-            How to find these?
-        </a>
-    </div>
+    <!-- Redesigned help link - more clearly external -->
+    <a href="#" target="_blank" rel="noopener noreferrer" class="inline-flex items-center text-sm bg-gray-50 hover:bg-gray-100 text-blue-600 hover:text-blue-700 px-3 py-1.5 rounded-md mb-3 transition-colors duration-150 border border-gray-200">
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-1.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+        </svg>
+        <span>How to find these credentials</span>
+        <!-- External link icon -->
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5 ml-1.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+        </svg>
+    </a>
     
-    <div class="flex items-center py-1.5 px-3 rounded-md bg-gray-50 mb-3 border-l-3 border-green-600">
+    <div class="flex items-center py-1.5 px-3 rounded-md bg-gray-50 mb-4 border-l-3 border-green-600">
         <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-green-600 mr-2 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
         </svg>
@@ -120,7 +123,7 @@
                 placeholder="Your RPC username"
             />
         </div>
-        <div>
+        <div class="mb-1">
             <label for="cs-rpcPassword" class="block text-sm font-medium text-gray-700 mb-1">RPC Password</label> <!-- Unique ID -->
             <input
                 type="password"
@@ -131,21 +134,28 @@
                 placeholder="Your RPC password"
             />
         </div>
-        <button
-            type="submit" 
-            disabled={connectionStatus === 'testing' || !rpcUser || !rpcPassword}
-            class="w-full flex justify-center items-center py-2 px-3 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-60 disabled:cursor-not-allowed transition-all duration-150 ease-in-out"
-        >
-            {#if connectionStatus === 'testing'}
-                <svg class="animate-spin -ml-1 mr-3 h-5 w-5 text-gray-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                </svg>
-                Testing Connection...
-            {:else}
-                Test Connection
-            {/if}
-        </button>
+        
+        <!-- Redesigned test connection button - smaller and secondary -->
+        <div class="flex justify-end">
+            <button
+                type="submit" 
+                disabled={connectionStatus === 'testing' || !rpcUser || !rpcPassword}
+                class="flex justify-center items-center py-1.5 px-3 border border-gray-300 rounded-md shadow-sm text-xs font-medium text-gray-600 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-60 disabled:cursor-not-allowed transition-all duration-150 ease-in-out"
+            >
+                {#if connectionStatus === 'testing'}
+                    <svg class="animate-spin mr-1.5 h-3.5 w-3.5 text-gray-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    Testing...
+                {:else}
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5 mr-1.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
+                    </svg>
+                    Test Connection
+                {/if}
+            </button>
+        </div>
     </form>
 
     <!-- Connection Status/Error - Compact design -->
