@@ -8,12 +8,15 @@
 // - Registered tauri-plugin-secure-store.
 // - Updated invoke_handler to include all commands.
 // - Added send_private_message command.
+// - Added settings module and persistence commands.
 
 mod verus_rpc;
 mod credentials; // Added credentials module
+mod settings; // Added settings module
 
 use verus_rpc::VerusRpcError;
 use credentials::CredentialError; // Import credential error
+use settings::SettingsError; // Import settings error
 use verus_rpc::FormattedIdentity;
 use verus_rpc::ChatMessage; // Import ChatMessage
 
@@ -24,6 +27,8 @@ enum CommandError {
     Rpc(String),
     #[error("Credential Error: {0}")] // Added Credential error variant
     Credentials(String),
+    #[error("Settings Error: {0}")] // Added Settings error variant
+    Settings(String),
     #[error("Verus RPC Error: {0}")] // Use the same variant, but handle specific RPC errors
     RpcSpecific(verus_rpc::VerusRpcError), // Pass the specific error type
 }
@@ -45,6 +50,18 @@ impl From<CredentialError> for CommandError {
         match error {
             CredentialError::Store(_) => CommandError::Credentials("Failed to access store.".to_string()),
             _ => CommandError::Credentials(error.to_string()),
+        }
+    }
+}
+
+// Convert SettingsError to CommandError
+impl From<SettingsError> for CommandError {
+    fn from(error: SettingsError) -> Self {
+        log::error!("Settings operation failed: {:?}", error);
+        // Avoid leaking potentially sensitive details from StoreError
+        match error {
+            SettingsError::Store(_) => CommandError::Settings("Failed to access settings store.".to_string()),
+            _ => CommandError::Settings(error.to_string()),
         }
     }
 }
@@ -179,7 +196,15 @@ pub fn run() {
             check_identity_eligibility,
             get_chat_history,
             get_new_received_messages,
-            send_private_message // Added send message command
+            send_private_message, // Added send message command
+            // New Settings Commands
+            settings::save_persistence_setting,
+            settings::load_persistence_setting,
+            settings::save_conversations,
+            settings::load_conversations,
+            settings::save_messages_for_conversation,
+            settings::load_messages_for_conversation,
+            settings::delete_chat_data
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
