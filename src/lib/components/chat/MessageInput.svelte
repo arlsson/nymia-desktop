@@ -207,7 +207,7 @@
     
     <!-- Confirmation Dialog -->
     {#if showConfirmation}
-        <div class="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50" on:keydown={handleKeyDown} role="dialog" aria-modal="true" aria-labelledby="confirmation-title">
+        <div class="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50" on:keydown={handleKeyDown} role="dialog" aria-modal="true" aria-labelledby="confirmation-title" tabindex="-1">
             <div class="bg-white rounded-lg shadow-xl w-full max-w-sm overflow-hidden transform transition-all duration-300 border border-gray-100">
                 <div class="flex justify-between items-center p-3 border-b border-gray-200 bg-gray-50">
                     <h3 id="confirmation-title" class="font-semibold text-gray-800 text-base">Confirm Send</h3>
