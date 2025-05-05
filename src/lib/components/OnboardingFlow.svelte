@@ -10,6 +10,7 @@
 // - Added WelcomeStep component import and rendering
 // - Added image to the right panel with left side visible
 // - Added fade-in animation (fly from right) for the right panel image
+// - Moved image asset to static directory and updated path
 
   import { createEventDispatcher, onMount } from 'svelte';
   import { invoke } from '@tauri-apps/api/core';
@@ -320,7 +321,7 @@
         <div class="absolute inset-0 flex items-center">
             {#if imageVisible}
               <img 
-                  src="src/lib/assets/app-img.webp" 
+                  src="/app-img.webp" 
                   alt="Application preview" 
                   class="app-image"
                   transition:fly={{ x: 50, duration: 1200, delay: 100, easing: quintOut }}
@@ -388,7 +389,7 @@
     object-fit: cover; /* Fill container, crop if needed */
     object-position: left center; /* Keep left edge visible, vertically centered */
     position: relative;
-    transform: translateX(10%);
+    transform: translateX(10%); /* Restore the desired final position */
   }
 
   /* Other styles */

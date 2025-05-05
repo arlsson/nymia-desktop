@@ -8,6 +8,7 @@
 // - Adjusted spacing.
 // - Added smooth entrance animations using Svelte transitions.
 // - Enhanced icon animation for smoother motion.
+// - Moved image assets to static directory and updated paths
 
 import { createEventDispatcher, onMount } from 'svelte';
 import { fade, fly } from 'svelte/transition';
@@ -36,7 +37,7 @@ onMount(() => {
     <!-- Nymia Icon -->
     <div class="transform-gpu"> <!-- Hardware acceleration wrapper -->
       <img 
-        src="/src/lib/assets/nymia-icon.webp" 
+        src="/nymia-icon.webp" 
         alt="Nymia Icon" 
         class="w-12 h-12 mb-6" 
         transition:fly={{ y: -20, duration: 1200, delay: 0, easing: quintOut }}
@@ -47,7 +48,7 @@ onMount(() => {
   {#if visible}
     <!-- Tagline Image -->
     <img 
-      src="/src/lib/assets/tagline.webp" 
+      src="/tagline.webp" 
       alt="Messages you can't see. Payments you can't trace. Freedom I can feel." 
       class="w-72 mb-16" 
       transition:fly={{ x: -20, duration: 1200, delay: 400, easing: quintOut }}
