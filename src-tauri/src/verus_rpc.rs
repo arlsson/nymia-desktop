@@ -507,6 +507,8 @@ pub async fn send_private_message(
     amount: f64                    // Amount to send (0 if just a message)
 ) -> Result<String, VerusRpcError> // Returns the txid on success
 {
+    log::info!("send_private_message received memo_text: >>>{}<<<", memo_text); 
+    
     log::info!(
         "Attempting to send message/gift: from_addr={}, to_addr={}, amount={}, sender_id={}",
         sender_z_address,

@@ -19,7 +19,7 @@
   import { createEventDispatcher, tick } from 'svelte';
   import MessageInput from './MessageInput.svelte';
   import type { ChatMessage, PrivateBalance } from '$lib/types'; // Import ChatMessage & PrivateBalance types
-  import { formatRelativeTimeFromConfirmations } from '$lib/utils/timeFormatter'; // Import utility
+  import { formatRelativeTimeFromConfirmations, formatRelativeTimeFromTimestamp } from '$lib/utils/timeFormatter'; // Import utilities
   // Update imports to remove ArrowDown
   import { Gift } from 'lucide-svelte';
 
@@ -30,6 +30,7 @@
   export let contactName: string | null = null;
   export let messages: Message[] = [];
   export let privateBalance: PrivateBalance = null; // Add privateBalance prop
+  export let isTransactionPending: boolean = false; // Add pending state prop
 
   // --- State ---
   let chatContainer: HTMLElement;
@@ -121,31 +122,21 @@
                 {/if}
                 
                 <!-- Message Text -->
-                <p class="text-sm">{message.text}</p>
+                <p class="text-sm" style="font-family: 'IBM Plex Mono', monospace;">{message.text}</p>
                 
                 <!-- Timestamp / Status Row -->
                 <div class="text-xs mt-1.5 text-gray-500 text-right flex justify-end items-center self-end">
-                  <!-- Relative time for received, absolute time for sent (placeholder) -->
+                  <!-- Relative time formatting -->
                   <span>
                       {#if message.direction === 'received'}
                           {formatRelativeTimeFromConfirmations(message.confirmations)}
-                      {:else}
-                          {new Date(message.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                      {:else} 
+                          {formatRelativeTimeFromTimestamp(message.timestamp)}
                       {/if}
                   </span>
                   
-                  <!-- Status indicator for sent messages -->
-                  {#if message.sender === 'self' && message.status}
-                     <span class="ml-1 text-xs">
-                        {#if message.status === 'sent'}
-                          <span class="text-gray-400">✓</span>
-                        {:else if message.status === 'delivered'}
-                          <span class="text-[#419A6A]">✓✓</span>
-                        {:else if message.status === 'failed'}
-                          <span class="text-red-500">!</span>
-                        {/if}
-                     </span>
-                  {/if}
+                  <!-- Status indicator removed -->
+                  <!-- {#if message.sender === 'self' && message.status} ... {/if} -->
                 </div>
               </div>
             </div>
@@ -159,6 +150,7 @@
     <div class="flex-shrink-0 bg-white border-t border-gray-200">
       <MessageInput 
         {privateBalance}  
+        {isTransactionPending}
         on:sendMessage={handleSendMessage} 
       />
     </div>

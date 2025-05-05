@@ -50,6 +50,7 @@ export interface ChatMessage {
     confirmations: number;
     direction: 'received' | 'sent'; // Initially only 'received' from history
     status?: 'sent' | 'delivered' | 'failed'; // Optional delivery status for sent messages
+    sentAtBlockHeight?: number; // Block height when the message was sent (for sent messages)
 }
 
 // Structure for conversation entries in the list

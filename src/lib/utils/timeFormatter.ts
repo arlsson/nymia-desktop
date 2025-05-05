@@ -37,3 +37,52 @@ export function formatRelativeTimeFromConfirmations(confirmations: number | null
     // // TODO: Switch to absolute date formatting when available
     return `${daysAgo}d ago`;
 } 
+
+/**
+ * Formats a relative time string based on a JavaScript timestamp.
+ * 
+ * @param timestamp - The JavaScript timestamp (milliseconds since epoch).
+ * @returns A formatted relative time string (e.g., "Just now", "5m ago", "2h ago", "Yesterday", "MM/DD/YYYY").
+ */
+export function formatRelativeTimeFromTimestamp(timestamp: number | null | undefined): string {
+    if (!timestamp) {
+        return ''; // Return empty if timestamp is invalid
+    }
+
+    const now = Date.now();
+    const secondsAgo = Math.round((now - timestamp) / 1000);
+
+    if (secondsAgo < 60) {
+        return "Just now";
+    }
+    
+    const minutesAgo = Math.round(secondsAgo / 60);
+    if (minutesAgo < 60) {
+        return `${minutesAgo}m ago`;
+    }
+    
+    const hoursAgo = Math.round(minutesAgo / 60);
+    if (hoursAgo < 24) {
+        return `${hoursAgo}h ago`;
+    }
+
+    const daysAgo = Math.round(hoursAgo / 24);
+    if (daysAgo === 1) {
+        return "Yesterday";
+    }
+    
+    // After Yesterday, show the date
+    const date = new Date(timestamp);
+    const year = date.getFullYear();
+    const currentYear = new Date().getFullYear();
+    
+    // Simple date format MM/DD or MM/DD/YYYY if not current year
+    const month = (date.getMonth() + 1).toString().padStart(2, '0');
+    const day = date.getDate().toString().padStart(2, '0');
+
+    if (year === currentYear) {
+        return `${month}/${day}`;
+    } else {
+        return `${month}/${day}/${year}`;
+    }
+} 

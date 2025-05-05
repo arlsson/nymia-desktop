@@ -23,6 +23,7 @@
 
   // --- Props ---
   export let privateBalance: PrivateBalance = null; // Add privateBalance prop
+  export let isTransactionPending: boolean = false; // Add pending state prop
 
   // --- State ---
   let messageText: string = '';
@@ -113,12 +114,46 @@
       ? `Send ${messageText.trim() ? 'a message with ' : ''}${amountToSend} VRSC gift` 
       : 'Send message';
       
-  // FIX: Corrected disabled logic: button enabled if (message is valid OR amount is valid) AND confirmation is not shown AND balance is sufficient
+  // FIX: Corrected disabled logic: button enabled if (message is valid OR amount is valid) AND confirmation is not shown AND balance is sufficient AND NO PENDING TX
   $: sendButtonDisabled = 
     (messageText.trim().length > MAX_MESSAGE_LENGTH) || // Message too long
     (messageText.trim().length === 0 && (amountToSend === null || amountToSend <= 0)) || // No message and no gift
     (amountToSend !== null && privateBalance !== null && amountToSend > (privateBalance - TX_FEE)) || // Insufficient balance
+    isTransactionPending || // Transaction is pending confirmation
     showConfirmation; // Confirmation dialog is open
+
+  // Tooltip text for the send button
+  $: sendButtonTitle = isTransactionPending ? "Waiting for previous transaction to confirm" : "Send message/gift";
+
+  // Function to handle input and enforce ASCII
+  function handleInput(event: Event) {
+      const target = event.target as HTMLTextAreaElement;
+      const originalValue = target.value;
+      const filteredValue = originalValue.replace(/[^\x00-\x7F]/g, '');
+      
+      if (originalValue !== filteredValue) {
+          // Preserve cursor position after filtering
+          const start = target.selectionStart;
+          const end = target.selectionEnd;
+          messageText = filteredValue; // Update the bound variable
+          // Use tick to wait for Svelte to update the DOM, then restore cursor
+          import('svelte').then(({ tick }) => {
+              tick().then(() => {
+                  // Adjust cursor position based on removed characters before the cursor
+                  let charsRemovedBeforeStart = 0;
+                  for (let i = 0; i < Math.min(start, originalValue.length); i++) {
+                      if (originalValue.charCodeAt(i) > 127) {
+                          charsRemovedBeforeStart++;
+                      }
+                  }
+                  const newStart = start - charsRemovedBeforeStart;
+                  target.setSelectionRange(newStart, newStart);
+              });
+          });
+      } else {
+          messageText = originalValue; // No change, just update bound variable normally
+      }
+  }
 
 </script>
 
@@ -127,10 +162,12 @@
     <div class="relative mb-1.5">
         <textarea
             bind:value={messageText}
+            on:input={handleInput}
             on:keydown={handleKeyDown}
             rows="2"
             placeholder="Type your message... (412 characters max)"
-            class={`w-full py-2 px-3 border rounded resize-none focus:outline-none focus:ring-1 text-sm h-20 ${isOverLimit ? 'border-red-300 focus:ring-red-500 focus:border-red-300' : 'border-gray-200 focus:ring-[#419A6A] focus:border-[#419A6A]'}`}
+            class={`w-full py-2 px-3 border rounded resize-none focus:outline-none focus:ring-1 text-sm h-20 font-mono ${isOverLimit ? 'border-red-300 focus:ring-red-500 focus:border-red-300' : 'border-gray-200 focus:ring-[#419A6A] focus:border-[#419A6A]'}`}
+            style="font-family: 'IBM Plex Mono', monospace;"
             disabled={showConfirmation}
         ></textarea>
         
@@ -193,6 +230,7 @@
             type="button" 
             on:click={handleSubmit}
             disabled={sendButtonDisabled}
+            title={sendButtonTitle}
             class="p-1.5 rounded text-white hover:bg-[#378A5A] focus:outline-none focus:ring-1 focus:ring-offset-1 focus:ring-[#419A6A] disabled:opacity-50 disabled:cursor-not-allowed transition-colors duration-150 shrink-0"
             style="background-color: {sendButtonDisabled ? '#9fcfb8' : '#419A6A'};"
         >
@@ -221,7 +259,7 @@
                     
                     <!-- Message Preview -->
                     {#if messageText.trim()}
-                        <div class="bg-gray-50 p-2 rounded text-sm mb-2 border border-gray-200">
+                        <div class="bg-gray-50 p-2 rounded text-sm mb-2 border border-gray-200" style="font-family: 'IBM Plex Mono', monospace; word-wrap: break-word;">
                             {messageText}
                         </div>
                     {/if}

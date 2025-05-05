@@ -33,7 +33,8 @@
     *   When the Send button is disabled due to a pending transaction, hovering over it shall display a tooltip explaining the reason (e.g., "Waiting for previous transaction to confirm").
 *   **FR4: Clearing the Pending State:**
     *   The pending state (spinner icon removed, Send button re-enabled) must be cleared when the application detects an increase in the `blockHeight`.
-    *   This requires the application to periodically check the `blockHeight` and compare it against the height recorded when the pending state was initiated.
+    *   This requires the application to periodically check the *current* `blockHeight` and compare it against the height recorded (`pendingSinceBlock`) when the pending state was initiated (as per FR1).
+    *   **Crucially, the pending state is cleared ONLY when `currentBlockHeight > pendingSinceBlock`. This handles scenarios where multiple blocks arrive between checks.**
 *   **FR5: State Persistence & Concurrency:**
     *   The pending state does not need to persist across application restarts. If the app is closed and reopened while a transaction was pending, the indicator and lock will be lost, which is acceptable for this version.
     *   The system will assume only one pending transaction needs tracking at a time. If a send is initiated, the lock engages until the next block, regardless of whether the underlying wallet could technically handle more UTXOs.

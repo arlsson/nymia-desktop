@@ -6,9 +6,10 @@
 // - Redesigned with a more subtle, modern style (white background with subtle border).
 // - Reduced height and increased whitespace.
 // - Added block height indicator.
+// - Added spinner icon when transaction is pending.
 
   import { createEventDispatcher } from 'svelte';
-  import { LogOut, RefreshCw, Settings, Layers } from 'lucide-svelte'; // Added Layers icon
+  import { LogOut, Settings, Layers, Loader } from 'lucide-svelte'; // Removed RefreshCw
   // Import the new type alias
   import type { PrivateBalance } from '$lib/types';
 
@@ -17,19 +18,16 @@
   // Use the new type alias
   export let privateBalance: PrivateBalance = null;
   export let blockHeight: number | null = null; // Added block height prop
+  export let isTransactionPending: boolean = false; // Added pending state prop
 
   // --- Events ---
-  const dispatch = createEventDispatcher<{ 
-      logout: void; 
-      refresh: void;
-      settings: void;
+  const dispatch = createEventDispatcher<{
+    logout: void;
+    settings: void;
   }>();
 
   function handleLogout() {
     dispatch('logout');
-  }
-  function handleRefresh() {
-    dispatch('refresh');
   }
   function handleSettings() {
     dispatch('settings');
@@ -47,9 +45,14 @@
   </div>
 
   <!-- Center: Balance (Placeholder) -->
-  <div class="text-sm text-gray-600 flex items-center">
+  <div class="text-sm text-gray-600 flex items-center space-x-1.5">
     <span class="mr-1 font-medium">Private Balance:</span> 
     <span class={privateBalance !== null ? 'text-[#419A6A]' : 'text-gray-500'}>{formattedBalance}</span>
+    {#if isTransactionPending}
+      <div class="animate-spin text-gray-400" title="Waiting for transaction confirmation">
+        <Loader size={14} />
+      </div>
+    {/if}
   </div>
 
   <!-- Right: Action Buttons -->
@@ -63,11 +66,11 @@
     {/if}
     
     <button 
-      on:click={handleRefresh} 
-      title="Refresh Data"
+      on:click={handleLogout} 
+      title="Log Out"
       class="p-1.5 rounded text-gray-500 hover:bg-gray-100 hover:text-gray-700 focus:outline-none focus:ring-1 focus:ring-gray-200 transition-colors duration-150"
     >
-      <RefreshCw size={16} />
+      <LogOut size={16} />
     </button>
     <button 
       on:click={handleSettings} 
@@ -75,13 +78,6 @@
       class="p-1.5 rounded text-gray-500 hover:bg-gray-100 hover:text-gray-700 focus:outline-none focus:ring-1 focus:ring-gray-200 transition-colors duration-150"
     >
       <Settings size={16} />
-    </button>
-    <button 
-      on:click={handleLogout} 
-      title="Log Out"
-      class="p-1.5 rounded text-gray-500 hover:bg-gray-100 hover:text-gray-700 focus:outline-none focus:ring-1 focus:ring-gray-200 transition-colors duration-150"
-    >
-      <LogOut size={16} />
     </button>
   </div>
 </div> 

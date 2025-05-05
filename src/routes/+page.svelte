@@ -121,9 +121,9 @@
         }
         
         stopBlockCheckTimer(); // Clear any existing timer first
-        console.log("Starting periodic block/balance check (every 30s).");
+        console.log("Starting periodic block/balance check (every 15s).");
         performChecks(); // Perform initial check immediately
-        blockCheckIntervalId = setInterval(performChecks, 30000); // 30 seconds
+        blockCheckIntervalId = setInterval(performChecks, 15000); // Check every 15 seconds
     }
 
     function stopBlockCheckTimer() {

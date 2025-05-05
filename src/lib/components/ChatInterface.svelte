@@ -45,16 +45,20 @@
   let showNewChatModal = false;
   let showSettingsView = false; // NEW: Track if settings view is active
 
+  // Pending Transaction State
+  let isTransactionPending = false;
+  let pendingSinceBlock: number | null = null;
+
   // Persistence State
   let showPersistencePrompt = false;
   let persistenceSetting: boolean | null = null; // null = setting not yet determined/loaded
-  let persistenceChecked = false; // Track if we've checked persistence
 
   // --- Data State (Initialized Empty) ---
   let conversations: Conversation[] = []; // Use the imported type
   let messages: { [conversationId: string]: ChatMessage[] } = {};
   let pollingIntervalId: ReturnType<typeof setInterval> | null = null;
   let isPolling = false;
+  let selectedMessages: ChatMessage[] = []; // Add declaration for computed messages
 
   // --- Computed State ---
   $: existingConversationIds = conversations.map(c => c.id.toLowerCase());
@@ -65,9 +69,8 @@
   // --- Lifecycle ---
   onMount(() => {
       console.log("ChatInterface: onMount - Logged in ID:", loggedInIdentity);
-      // Check persistence setting FIRST, then decide whether to load data or poll
+      // Ensure initial sort if data is loaded
       checkAndApplyPersistence(); 
-      // Polling will be started by checkAndApplyPersistence if needed
   });
 
   onDestroy(() => {
@@ -113,9 +116,6 @@
           persistenceSetting = false; // Default to false on error
           conversations = []; // Ensure clean state on error
           messages = {};
-          startPolling(); // Start polling in ephemeral mode on error
-      } finally {
-          persistenceChecked = true;
       }
   }
 
@@ -140,7 +140,7 @@
                            identityIAddress: loggedInUserIAddress,
                            conversationId: convo.id
                        });
-                       loadedMessages[convo.id] = (savedMessages || []).sort(compareMessages); // Load and sort
+                       loadedMessages[convo.id] = sortMessages(savedMessages || [], blockHeight); 
                        console.log(`ChatInterface: Loaded ${loadedMessages[convo.id].length} messages for ${convo.id}`);
                    } catch (msgError) {
                        console.error(`ChatInterface: Error loading messages for conversation ${convo.id}:`, msgError);
@@ -203,9 +203,9 @@
 
   // --- Polling Logic ---
   function startPolling() {
-      // Only start polling if persistence check is complete and we have an address
-      if (!persistenceChecked || !loggedInUserPrivateAddress) {
-          console.log(`ChatInterface: Delaying polling start. Persistence checked: ${persistenceChecked}, Address available: ${!!loggedInUserPrivateAddress}`);
+      // Only start polling if persistence setting is known and we have an address
+      if (persistenceSetting === null || !loggedInUserPrivateAddress) {
+          console.log(`ChatInterface: Delaying polling start. Persistence Setting Known: ${persistenceSetting !== null}, Address available: ${!!loggedInUserPrivateAddress}`);
           return;
       }
       stopPolling(); // Ensure no duplicate intervals
@@ -293,6 +293,7 @@
                  if (currentList[existingMsgIndex].confirmations !== newMessage.confirmations) {
                      console.log(`ChatInterface: Updating confirmations for message ${newMessage.id} from ${senderId}`);
                      currentList[existingMsgIndex].confirmations = newMessage.confirmations;
+                     // No need to resort on confirmation update alone unless desired
                      messagesUpdated = true; // Mark as updated if confirmations changed
                  }
               }
@@ -303,10 +304,7 @@
       }
 
       if (messagesUpdated) {
-          // Sort affected conversations after adding/updating messages
-          Object.keys(currentMessages).forEach(convoId => {
-              currentMessages[convoId].sort(compareMessages);
-          });
+          // We don't need to resort everything here anymore, sorting happens per-conversation list
           messages = currentMessages; // Assign the updated object back to trigger reactivity
           console.log("ChatInterface: Messages state updated.");
       }
@@ -377,10 +375,11 @@
         id: `msg-${Date.now()}-${Math.random()}`, // Temporary unique ID
         sender: 'self',
         text: messageText,
-        timestamp: Date.now(),
+        timestamp: Date.now(), // Keep for potential future use/tie-breaking?
+        sentAtBlockHeight: blockHeight || 0, // Store block height when sent (use 0 if unavailable)
         status: 'sent', // Initial optimistic status
         amount: amount || 0,
-        confirmations: 0,
+        confirmations: 0, // Sent messages have 0 confirmations locally
         direction: 'sent'
     };
 
@@ -388,11 +387,10 @@
     const currentList = messages[selectedConversationId] || [];
     // Create a *new* array with the new message added
     const newList = [...currentList, newMessage];
-    // Sort the new array
-    newList.sort(compareMessages);
     
-    // Assign the new sorted array back to the specific conversation ID
-    messages[selectedConversationId] = newList;
+    // Sort the new list using the current block height
+    messages[selectedConversationId] = sortMessages(newList, blockHeight);
+    
     // Trigger top-level reactivity by creating a new messages object reference
     messages = { ...messages }; 
 
@@ -408,26 +406,33 @@
     // 2. Call Backend
     try {
         console.log("ChatInterface: Invoking send_private_message backend command...");
-        const txid = await invoke<string>('send_private_message', {
+        const opid = await invoke<string>('send_private_message', {
             senderZAddress: loggedInUserPrivateAddress,
             recipientZAddress: recipientPrivateAddress,
             memoText: messageText,
             senderIdentity: loggedInUserIdentityName, // e.g., user@
             amount: amount || 0, 
         });
-        console.log(`ChatInterface: Message sent successfully via backend. TXID: ${txid}`);
-        // TODO: Potentially update message status with txid or mark as confirmed later
+        console.log(`ChatInterface: Message send initiated successfully via backend. OPID: ${opid}`);
+
+        // ---> Set Pending State on Success <----
+        console.log(`ChatInterface: Setting pending state. Current block height: ${blockHeight}`);
+        isTransactionPending = true;
+        pendingSinceBlock = blockHeight; // Capture the block height *at the time of sending*
+        // <------------------------------------
+
     } catch (error) {
         console.error("ChatInterface: Error sending message via backend:", error);
-        // TODO: Revert optimistic update or mark message as failed
-        // For now, just log the error
-        // Example: Find the message by its temporary ID and update its status
+        // Revert optimistic update or mark message as failed
         const optimisticMessageIndex = messages[selectedConversationId]?.findIndex(m => m.id === newMessage.id);
         if (optimisticMessageIndex !== undefined && optimisticMessageIndex > -1) {
             messages[selectedConversationId][optimisticMessageIndex].status = 'failed';
             messages = { ...messages }; // Trigger reactivity to show potential failure
             console.log(`ChatInterface: Marked optimistic message ${newMessage.id} as failed.`);
         }
+        // Ensure pending state is NOT set or is cleared on error
+        isTransactionPending = false; 
+        pendingSinceBlock = null;
     }
   }
 
@@ -487,7 +492,7 @@
         }
     }
     // Ensure messages are sorted after potential merge
-    messages[newConversationId] = currentMessages.sort(compareMessages);
+    messages[newConversationId] = sortMessages(currentMessages, blockHeight); // Sort merged history
     messages = { ...messages }; // Trigger reactivity for messages
 
     // 3. Select the new conversation
@@ -553,15 +558,6 @@
       console.log("ChatInterface: Logout requested");
       stopPolling(); // Stop polling on logout
       dispatch('logout'); 
-  }
-    
-  function handleRefresh() {
-    // Close settings if open when refreshing
-    if (showSettingsView) {
-        showSettingsView = false;
-    }
-    console.log("ChatInterface: Refresh requested");
-    fetchNewMessages(); // Trigger manual refresh
   }
     
   function handleSettings() {
@@ -631,8 +627,79 @@
   }
 
   // Reactive computation for selected conversation's messages
-  $: selectedMessages = selectedConversationId ? (messages[selectedConversationId] || []) : []; // Use reactive messages
+  $: {
+    const rawMessages = selectedConversationId ? (messages[selectedConversationId] || []) : [];
+    // Always ensure messages are sorted just before display
+    selectedMessages = sortMessages(rawMessages, blockHeight);
+  } 
   $: selectedContactName = showSettingsView ? null : selectedConversationId ? conversations.find(c => c.id === selectedConversationId)?.name : null; // Don't show contact name if settings are open
+
+  // --- Reactive Logic for Clearing Pending State ---
+  $: if (isTransactionPending && blockHeight !== null && pendingSinceBlock !== null && blockHeight > pendingSinceBlock) {
+      console.log(`ChatInterface: Detected new block (${blockHeight} > ${pendingSinceBlock}). Clearing pending state.`);
+      isTransactionPending = false;
+      pendingSinceBlock = null;
+  }
+
+  // --- Sorting Logic (Using Effective Block Height) ---
+  function sortMessages(messageList: ChatMessage[], currentBh: number | null): ChatMessage[] {
+      if (currentBh === null) return messageList; // Cannot sort without current height
+
+      return messageList.sort((a, b) => {
+          const blockA = getEffectiveBlockHeight(a, currentBh);
+          const blockB = getEffectiveBlockHeight(b, currentBh);
+
+          // Handle nulls (messages where block couldn't be determined - place them older/top)
+          if (blockA === null && blockB === null) return 0;
+          if (blockA === null) return 1; 
+          if (blockB === null) return -1;
+
+          // Primary sort: Effective Block Height DESCENDING (newest block first in array)
+          if (blockB !== blockA) {
+              return blockB - blockA; 
+          }
+
+          // Secondary sort (tie-breaker for same block): 
+          // Prefer Sent messages slightly earlier (lower in array, visually higher) than received in same block
+          if (a.direction !== b.direction) {
+               return a.direction === 'sent' ? -1 : 1;
+          }
+
+          // Tertiary sort (if both sent or both received in same block):
+          if (a.direction === 'sent') {
+              // Timestamp descending for sent (newest timestamp first)
+              return (b.timestamp || 0) - (a.timestamp || 0); 
+          } else {
+              // Confirmations ascending for received (lowest confirmations first - means newer)
+              return (a.confirmations ?? 0) - (b.confirmations ?? 0); 
+          }
+      });
+  }
+
+  function getEffectiveBlockHeight(message: ChatMessage, currentBh: number): number | null {
+      if (message.direction === 'sent') {
+          if (message.sentAtBlockHeight !== undefined && message.sentAtBlockHeight !== null) {
+              return message.sentAtBlockHeight; // Use proper block height if available
+          } else if (message.timestamp) {
+              // For historical sent messages without sentAtBlockHeight, use timestamp for relative ordering
+              // Assume 1 minute per block, estimate how many blocks ago this message was sent
+              const now = Date.now();
+              const messageTime = message.timestamp;
+              const minutesAgo = Math.floor((now - messageTime) / 60000);
+              
+              // Don't go before block 0 and cap at a reasonable value
+              // Messages more than currentBh blocks old will appear at the top
+              return Math.max(0, currentBh - Math.min(currentBh, minutesAgo));
+          }
+          return null; // Last resort if no timestamp either
+      } else { // Received
+          if (message.confirmations === undefined || message.confirmations === null) {
+              return null; // Cannot determine block if confirmations are missing
+          }
+          // Use confirmations for received. Handle unconfirmed (0 confs) as current block.
+          return currentBh - message.confirmations;
+      }
+  }
 
 </script>
 
@@ -642,8 +709,8 @@
     verusIdName={loggedInIdentity?.formatted_name || 'Unknown User'} 
     privateBalance={privateBalance}
     blockHeight={blockHeight}
+    isTransactionPending={isTransactionPending}
     on:logout={handleLogout}
-    on:refresh={handleRefresh}
     on:settings={handleSettings}
   />
 
@@ -675,6 +742,7 @@
               contactName={selectedContactName}
               messages={selectedMessages}
               privateBalance={privateBalance}
+              isTransactionPending={isTransactionPending}
               on:sendMessage={handleSendMessage}
           />
       {/if}
