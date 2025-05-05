@@ -11,6 +11,7 @@
 // - Added image to the right panel with left side visible
 // - Added fade-in animation (fly from right) for the right panel image
 // - Moved image asset to static directory and updated path
+// - Wrapped animating image in a div with static transform to fix animation jump
 
   import { createEventDispatcher, onMount } from 'svelte';
   import { invoke } from '@tauri-apps/api/core';
@@ -320,12 +321,15 @@
         <!-- App image with left portion visible -->
         <div class="absolute inset-0 flex items-center">
             {#if imageVisible}
-              <img 
-                  src="/app-img.webp" 
-                  alt="Application preview" 
-                  class="app-image"
-                  transition:fly={{ x: 50, duration: 1200, delay: 100, easing: quintOut }}
-              />
+              <!-- Wrapper div to hold the final transform -->
+              <div style="transform: translateX(10%); width: 100%; height: 100%; display: flex; align-items: center;">
+                <img 
+                    src="/app-img.webp" 
+                    alt="Application preview" 
+                    class="app-image" 
+                    transition:fly={{ x: 50, duration: 1200, delay: 100, easing: quintOut }}
+                />
+              </div>
             {/if}
         </div>
          
@@ -388,8 +392,7 @@
     width: auto;
     object-fit: cover; /* Fill container, crop if needed */
     object-position: left center; /* Keep left edge visible, vertically centered */
-    position: relative;
-    transform: translateX(10%); /* Restore the desired final position */
+    position: relative; /* Might be optional now, but keeping for safety */
   }
 
   /* Other styles */
