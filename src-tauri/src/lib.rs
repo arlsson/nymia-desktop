@@ -9,16 +9,24 @@
 // - Updated invoke_handler to include all commands.
 // - Added send_private_message command.
 // - Added settings module and persistence commands.
+// - Added `pub mod rpc_client;` to declare the new module for RPC client logic.
+// - Added `pub mod identity_rpc;` to declare the new module for identity RPC logic.
+// - Added `pub mod message_rpc;` to declare the new module for message RPC logic.
+// - Added `pub mod wallet_rpc;` to declare the new module for wallet RPC logic.
+// - Corrected use statements and function call paths to reflect new module structure.
 
-mod verus_rpc;
 mod credentials; // Added credentials module
 mod settings; // Added settings module
+pub mod rpc_client;
+pub mod identity_rpc;
+pub mod message_rpc;
+pub mod wallet_rpc;
 
-use verus_rpc::VerusRpcError;
-use credentials::CredentialError; // Import credential error
-use settings::SettingsError; // Import settings error
-use verus_rpc::FormattedIdentity;
-use verus_rpc::ChatMessage; // Import ChatMessage
+use crate::rpc_client::VerusRpcError; // Corrected
+use crate::credentials::CredentialError; // Import credential error
+use crate::settings::SettingsError; // Import settings error
+use crate::identity_rpc::FormattedIdentity; // Corrected
+use crate::message_rpc::ChatMessage; // Corrected
 
 // Custom error type serializable for Tauri
 #[derive(Debug, serde::Serialize, thiserror::Error)]
@@ -30,12 +38,12 @@ enum CommandError {
     #[error("Settings Error: {0}")] // Added Settings error variant
     Settings(String),
     #[error("Verus RPC Error: {0}")] // Use the same variant, but handle specific RPC errors
-    RpcSpecific(verus_rpc::VerusRpcError), // Pass the specific error type
+    RpcSpecific(crate::rpc_client::VerusRpcError), // Corrected
 }
 
 // Convert VerusRpcError to CommandError
-impl From<verus_rpc::VerusRpcError> for CommandError {
-    fn from(error: verus_rpc::VerusRpcError) -> Self {
+impl From<crate::rpc_client::VerusRpcError> for CommandError { // Corrected
+    fn from(error: crate::rpc_client::VerusRpcError) -> Self { // Corrected
         log::error!("RPC call failed: {:?}", error);
         // Return the specific error type for frontend handling
         CommandError::RpcSpecific(error)
@@ -74,7 +82,7 @@ async fn connect_verus_daemon(rpc_user: String, rpc_pass: String) -> Result<u64,
     let _ = env_logger::try_init();
 
     log::info!("connect_verus_daemon command received");
-    verus_rpc::connect_and_get_block_height(rpc_user, rpc_pass)
+    crate::wallet_rpc::connect_and_get_block_height(rpc_user, rpc_pass) // Corrected path
         .await
         .map_err(CommandError::from)
 }
@@ -86,9 +94,9 @@ async fn get_login_identities(
 ) -> Result<Vec<FormattedIdentity>, CommandError> {
     log::info!("get_login_identities command received");
     // Load credentials first
-    let creds = credentials::load_credentials(app).await?;
+    let creds = crate::credentials::load_credentials(app).await?;
     // Then call the RPC function
-    verus_rpc::get_login_identities(creds.rpc_user, creds.rpc_pass)
+    crate::identity_rpc::get_login_identities(creds.rpc_user, creds.rpc_pass) // Corrected path
         .await
         .map_err(CommandError::from)
 }
@@ -100,8 +108,8 @@ async fn get_private_balance(
     address: String,
 ) -> Result<f64, CommandError> {
     log::info!("get_private_balance command received for address: {}", address);
-    let creds = credentials::load_credentials(app).await?;
-    verus_rpc::get_private_balance(creds.rpc_user, creds.rpc_pass, address)
+    let creds = crate::credentials::load_credentials(app).await?;
+    crate::wallet_rpc::get_private_balance(creds.rpc_user, creds.rpc_pass, address) // Correct path
         .await
         .map_err(CommandError::from)
 }
@@ -113,8 +121,8 @@ async fn check_identity_eligibility(
     target_identity_name: String,
 ) -> Result<FormattedIdentity, CommandError> {
     log::info!("check_identity_eligibility command received for: {}", target_identity_name);
-    let creds = credentials::load_credentials(app).await?;
-    verus_rpc::check_identity_eligibility(creds.rpc_user, creds.rpc_pass, target_identity_name)
+    let creds = crate::credentials::load_credentials(app).await?;
+    crate::identity_rpc::check_identity_eligibility(creds.rpc_user, creds.rpc_pass, target_identity_name) // Corrected path
         .await
         .map_err(CommandError::from) // Uses the updated From implementation
 }
@@ -127,8 +135,8 @@ async fn get_chat_history(
     own_private_address: String,
 ) -> Result<Vec<ChatMessage>, CommandError> {
     log::info!("get_chat_history command received from: {} for owner: {}", target_identity_name, own_private_address);
-    let creds = credentials::load_credentials(app).await?;
-    verus_rpc::get_chat_history(creds.rpc_user, creds.rpc_pass, target_identity_name, own_private_address)
+    let creds = crate::credentials::load_credentials(app).await?;
+    crate::message_rpc::get_chat_history(creds.rpc_user, creds.rpc_pass, target_identity_name, own_private_address) // Corrected path
         .await
         .map_err(CommandError::from)
 }
@@ -140,8 +148,8 @@ async fn get_new_received_messages(
     own_private_address: String,
 ) -> Result<Vec<ChatMessage>, CommandError> {
     log::info!("get_new_received_messages command received for owner: {}", own_private_address);
-    let creds = credentials::load_credentials(app).await?;
-    verus_rpc::get_new_received_messages(creds.rpc_user, creds.rpc_pass, own_private_address)
+    let creds = crate::credentials::load_credentials(app).await?;
+    crate::message_rpc::get_new_received_messages(creds.rpc_user, creds.rpc_pass, own_private_address) // Corrected path
         .await
         .map_err(CommandError::from)
 }
@@ -162,8 +170,8 @@ async fn send_private_message(
         amount,
         sender_identity
     );
-    let creds = credentials::load_credentials(app).await?;
-    verus_rpc::send_private_message(
+    let creds = crate::credentials::load_credentials(app).await?;
+    crate::message_rpc::send_private_message( // Corrected path
         creds.rpc_user,
         creds.rpc_pass,
         sender_z_address,
@@ -188,9 +196,9 @@ pub fn run() {
         .plugin(store_plugin) // Register the store plugin instance
         .invoke_handler(tauri::generate_handler![
             connect_verus_daemon,
-            credentials::save_credentials, // Add credential commands
-            credentials::load_credentials,
-            credentials::clear_credentials,
+            crate::credentials::save_credentials, // Add credential commands
+            crate::credentials::load_credentials,
+            crate::credentials::clear_credentials,
             get_login_identities, // Correct name used here
             get_private_balance, // Add the new balance command
             check_identity_eligibility,
@@ -198,13 +206,13 @@ pub fn run() {
             get_new_received_messages,
             send_private_message, // Added send message command
             // New Settings Commands
-            settings::save_persistence_setting,
-            settings::load_persistence_setting,
-            settings::save_conversations,
-            settings::load_conversations,
-            settings::save_messages_for_conversation,
-            settings::load_messages_for_conversation,
-            settings::delete_chat_data
+            crate::settings::save_persistence_setting,
+            crate::settings::load_persistence_setting,
+            crate::settings::save_conversations,
+            crate::settings::load_conversations,
+            crate::settings::save_messages_for_conversation,
+            crate::settings::load_messages_for_conversation,
+            crate::settings::delete_chat_data
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
