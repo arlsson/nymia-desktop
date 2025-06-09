@@ -224,8 +224,8 @@
 <!-- Main container: Two-panel layout -->
 <div class="flex h-screen font-sans">
 
-  <!-- Left Panel: Onboarding Steps (Light Mode) -->
-  <div class="w-1/2 flex flex-col bg-gray-50">
+  <!-- Left Panel: Onboarding Steps -->
+  <div class="w-1/2 flex flex-col bg-dark-bg-primary">
   
       <!-- Top padding -->
       <div class="pt-12 px-10"></div>
@@ -269,15 +269,15 @@
           </div>
       </div>
 
-      <!-- Bottom Button Bar (Remains Here) -->
-      <div class="px-10 py-4 border-t border-gray-200 bg-gray-50 mt-auto">
+      <!-- Bottom Button Bar -->
+      <div class="px-10 py-4 border-t border-dark-border-primary bg-dark-bg-primary mt-auto">
           <div class="flex justify-end space-x-3">
                <!-- Back Button (Conditional) -->
               {#if currentStep !== 'welcome'}
                 <button 
                     type="button"
                     on:click={prevStep} 
-                    class="py-2 px-3 border border-gray-300 rounded-md shadow-sm text-xs font-medium text-gray-700 bg-white hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition duration-150 ease-in-out"
+                    class="py-2 px-3 border border-dark-border-primary rounded-md shadow-sm text-xs font-medium text-dark-text-primary bg-dark-bg-secondary hover:bg-dark-bg-tertiary focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-brand-green transition duration-150 ease-in-out"
                 >
                      Back
                 </button>
@@ -288,7 +288,7 @@
                  <button 
                     type="button"
                     on:click={handleClearAuthenticationRequest} 
-                    class="py-2 px-3 border border-gray-300 rounded-md shadow-sm text-xs font-medium text-gray-700 bg-white hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition duration-150 ease-in-out"
+                    class="py-2 px-3 border border-dark-border-primary rounded-md shadow-sm text-xs font-medium text-dark-text-primary bg-dark-bg-secondary hover:bg-dark-bg-tertiary focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-brand-green transition duration-150 ease-in-out"
                 >
                      Clear Authentication
                 </button>
@@ -299,7 +299,7 @@
                 type="button"
                 on:click={primaryButtonAction} 
                 disabled={isPrimaryButtonDisabled} 
-                class={`py-2 px-3 border border-transparent rounded-md shadow-sm text-xs font-medium text-white focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 disabled:opacity-60 disabled:cursor-not-allowed transition duration-150 ease-in-out ${!isPrimaryButtonDisabled ? 'hover:bg-green-700' : ''}`}
+                class={`py-2 px-3 border border-transparent rounded-md shadow-sm text-xs font-medium text-white focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-brand-green disabled:opacity-60 disabled:cursor-not-allowed transition duration-150 ease-in-out ${!isPrimaryButtonDisabled ? 'hover:bg-brand-green-hover' : ''}`}
                 style={`background-color: ${isPrimaryButtonDisabled ? '#9fcfb8' : '#419A6A'};`} 
              >
                 {primaryButtonLabel}

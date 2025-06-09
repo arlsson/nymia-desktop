@@ -52,6 +52,13 @@
 
 @tailwind utilities;
 
+/* Apply base dark theme styles */
+@layer base {
+  body {
+    @apply bg-dark-bg-primary text-dark-text-primary;
+  }
+}
+
 /* Apply tighter tracking only to specific larger text sizes */
 @layer utilities {
   .text-xl {

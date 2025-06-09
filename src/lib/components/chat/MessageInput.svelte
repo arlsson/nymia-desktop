@@ -1,6 +1,6 @@
 <script lang="ts">
 // Component: src/lib/components/chat/MessageInput.svelte
-// Description: Input area for composing and sending chat messages.
+// Description: Input area for composing and sending chat messages (Dark Theme).
 // Changes:
 // - Renamed "Send VRSC" to "Gift VRSC" with rainbow gradient style
 // - Added confirmation dialog when sending messages/gifts
@@ -12,6 +12,7 @@
 // - STYLE: Matched confirmation dialog buttons to NewChatModal styles.
 // - FEAT: Added privateBalance prop and validation to prevent sending more than available.
 // - REDESIGN: Enhanced gift button contrast and made amount input inline.
+// - DARK THEME: Updated all colors to use dark theme color scheme from tailwind.config.js.
 
   import { createEventDispatcher } from 'svelte';
   import { Send, DollarSign, Gift, X, Check, AlertTriangle } from 'lucide-svelte';
@@ -106,10 +107,10 @@
   $: isOverLimit = messageLength > MAX_MESSAGE_LENGTH;
   $: remainingChars = MAX_MESSAGE_LENGTH - messageLength;
   $: charCountClass = isOverLimit 
-      ? 'text-red-500 font-medium' 
+      ? 'text-red-400 font-medium' 
       : remainingChars < 20 
-        ? 'text-orange-500' 
-        : 'text-gray-400';
+        ? 'text-orange-400' 
+        : 'text-dark-text-disabled';
   $: summaryText = amountToSend && amountToSend > 0 
       ? `Send ${messageText.trim() ? 'a message with ' : ''}${amountToSend} VRSC gift` 
       : 'Send message';
@@ -157,7 +158,7 @@
 
 </script>
 
-<div class="p-3 pt-2 bg-white">
+<div class="p-3 pt-2 bg-dark-bg-secondary">
     <!-- Main message input area -->
     <div class="relative mb-1.5">
         <textarea
@@ -166,7 +167,7 @@
             on:keydown={handleKeyDown}
             rows="2"
             placeholder="Type your message... (412 characters max)"
-            class={`w-full py-2 px-3 border rounded resize-none focus:outline-none focus:ring-1 text-sm h-20 font-mono ${isOverLimit ? 'border-red-300 focus:ring-red-500 focus:border-red-300' : 'border-gray-200 focus:ring-[#419A6A] focus:border-[#419A6A]'}`}
+            class={`w-full py-2 px-3 border rounded resize-none focus:outline-none focus:ring-1 text-sm h-20 font-mono bg-dark-bg-tertiary text-dark-text-primary placeholder-dark-text-disabled ${isOverLimit ? 'border-red-700 focus:ring-red-500 focus:border-red-600' : 'border-dark-border-secondary focus:ring-brand-green focus:border-brand-green'}`}
             style="font-family: 'IBM Plex Mono', monospace;"
             disabled={showConfirmation}
         ></textarea>
@@ -207,17 +208,17 @@
                         inputmode="decimal"
                         bind:value={amountToSend} 
                         placeholder="0.0000" 
-                        class={`w-full py-1.5 px-2 border rounded text-sm focus:outline-none focus:ring-1 pr-12 ${insufficientBalanceError ? 'border-red-400 focus:ring-red-500 focus:border-red-500' : 'border-gray-200 focus:ring-[#419A6A] focus:border-[#419A6A]'}`}
+                        class={`w-full py-1.5 px-2 border rounded text-sm focus:outline-none focus:ring-1 pr-12 bg-dark-bg-tertiary text-dark-text-primary placeholder-dark-text-disabled ${insufficientBalanceError ? 'border-red-600 focus:ring-red-500 focus:border-red-500' : 'border-dark-border-secondary focus:ring-brand-green focus:border-brand-green'}`}
                         disabled={!showFundsInput || showConfirmation}
                     />
-                    <div class="absolute right-2 top-1/2 -translate-y-1/2 text-sm text-gray-600 font-medium">
+                    <div class="absolute right-2 top-1/2 -translate-y-1/2 text-sm text-dark-text-secondary font-medium">
                         VRSC
                     </div>
                 </div>
                 
                 <!-- Error message inline -->
                 {#if insufficientBalanceError}
-                <div class="text-xs text-red-600 flex items-center truncate ml-2">
+                <div class="text-xs text-red-400 flex items-center truncate ml-2">
                     <AlertTriangle size={12} class="mr-1 shrink-0"/>
                     <span class="truncate">Max: {(privateBalance !== null ? (privateBalance - TX_FEE) : 0).toFixed(4)}</span>
                 </div>
@@ -231,7 +232,7 @@
             on:click={handleSubmit}
             disabled={sendButtonDisabled}
             title={sendButtonTitle}
-            class="p-1.5 rounded text-white hover:bg-[#378A5A] focus:outline-none focus:ring-1 focus:ring-offset-1 focus:ring-[#419A6A] disabled:opacity-50 disabled:cursor-not-allowed transition-colors duration-150 shrink-0"
+            class="p-1.5 rounded text-white hover:bg-brand-green-hover focus:outline-none focus:ring-1 focus:ring-offset-1 focus:ring-offset-dark-bg-secondary focus:ring-brand-green disabled:opacity-50 disabled:cursor-not-allowed transition-colors duration-150 shrink-0"
             style="background-color: {sendButtonDisabled ? '#9fcfb8' : '#419A6A'};"
         >
             <Send size={16} />
@@ -239,27 +240,27 @@
     </div>
     
     <!-- Information text -->
-    <div class="mt-2 text-xs text-left text-gray-500">
+    <div class="mt-2 text-xs text-left text-dark-text-secondary">
         Messages and gifts cost 0.0001 VRSC, are end-to-end encrypted and invisible to outsiders.
     </div>
     
     <!-- Confirmation Dialog -->
     {#if showConfirmation}
-        <div class="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50" on:keydown={handleKeyDown} role="dialog" aria-modal="true" aria-labelledby="confirmation-title" tabindex="-1">
-            <div class="bg-white rounded-lg shadow-xl w-full max-w-sm overflow-hidden transform transition-all duration-300 border border-gray-100">
-                <div class="flex justify-between items-center p-3 border-b border-gray-200 bg-gray-50">
-                    <h3 id="confirmation-title" class="font-semibold text-gray-800 text-base">Confirm Send</h3>
-                    <button on:click={cancelSend} class="text-gray-400 hover:text-gray-600 p-1 rounded-full hover:bg-gray-100 transition-colors focus:outline-none focus:ring-1 focus:ring-gray-200" aria-label="Close confirmation">
+        <div class="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50 backdrop-blur-sm" on:keydown={handleKeyDown} role="dialog" aria-modal="true" aria-labelledby="confirmation-title" tabindex="-1">
+            <div class="bg-dark-bg-secondary rounded-lg shadow-xl w-full max-w-sm overflow-hidden transform transition-all duration-300 border border-dark-border-primary">
+                <div class="flex justify-between items-center p-3 border-b border-dark-border-primary bg-dark-bg-primary">
+                    <h3 id="confirmation-title" class="font-semibold text-dark-text-primary text-base">Confirm Send</h3>
+                    <button on:click={cancelSend} class="text-dark-text-secondary hover:text-dark-text-primary p-1 rounded-full hover:bg-dark-bg-tertiary transition-colors focus:outline-none focus:ring-1 focus:ring-dark-border-secondary" aria-label="Close confirmation">
                         <X size={16} strokeWidth={2.5}/>
                     </button>
                 </div>
                 
                 <div class="p-4">
-                    <p class="text-gray-600 mb-3 text-sm">Are you sure you want to send this?</p>
+                    <p class="text-dark-text-secondary mb-3 text-sm">Are you sure you want to send this?</p>
                     
                     <!-- Message Preview -->
                     {#if messageText.trim()}
-                        <div class="bg-gray-50 p-2 rounded text-sm mb-2 border border-gray-200" style="font-family: 'IBM Plex Mono', monospace; word-wrap: break-word;">
+                        <div class="bg-dark-bg-tertiary p-2 rounded text-sm mb-2 border border-dark-border-secondary text-dark-text-primary" style="font-family: 'IBM Plex Mono', monospace; word-wrap: break-word;">
                             {messageText}
                         </div>
                     {/if}
@@ -276,27 +277,26 @@
                     {/if}
                     
                     <!-- Fee Details -->
-                    <div class="mt-3 mb-4 text-xs text-gray-500 flex justify-between items-center">
+                    <div class="mt-3 mb-4 text-xs text-dark-text-disabled flex justify-between items-center">
                         <span>Transaction fee: 0.0001 VRSC</span>
-                        <span class="font-medium">
+                        <span class="font-medium text-dark-text-secondary">
                             Total: {((amountToSend || 0) + 0.0001).toFixed(8)} VRSC
                         </span>
                     </div>
                 </div>
                 
-                <div class="px-4 py-3 bg-gray-50 border-t border-gray-200 flex justify-end space-x-3">
+                <div class="px-4 py-3 bg-dark-bg-primary border-t border-dark-border-primary flex justify-end space-x-3">
                     <button 
                         type="button"
                         on:click={cancelSend}
-                        class="py-2 px-3 border border-gray-300 rounded-md shadow-sm text-xs font-medium text-gray-700 bg-white hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-200 transition-colors"
+                        class="py-2 px-3 border border-dark-border-secondary rounded-md shadow-sm text-xs font-medium text-dark-text-primary bg-dark-bg-tertiary hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-dark-bg-primary focus:ring-dark-border-secondary transition-colors"
                     >
                         Cancel
                     </button>
                     <button 
                         type="button"
                         on:click={confirmSend}
-                        class="py-2 px-3 border border-transparent rounded-md shadow-sm text-xs font-medium text-white focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 disabled:opacity-60 disabled:cursor-not-allowed transition-colors hover:bg-green-700 flex items-center"
-                        style={`background-color: #419A6A;`}
+                        class="py-2 px-3 border border-transparent rounded-md shadow-sm text-xs font-medium text-white focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-dark-bg-primary focus:ring-brand-green disabled:opacity-60 disabled:cursor-not-allowed transition-colors hover:bg-brand-green-hover flex items-center bg-brand-green"
                     >
                         <Check size={14} class="mr-1.5" />
                         Confirm

@@ -40,34 +40,34 @@
 
 <div class="flex flex-col h-full">
   <!-- Header/New Chat Button -->
-  <div class="p-2 border-b border-gray-200 bg-gray-50">
+  <div class="p-2 border-b border-dark-border-primary bg-dark-bg-primary">
     <button 
       on:click={handleNewChat}
-      class="w-full flex items-center justify-center py-1.5 px-3 bg-white border border-gray-200 text-gray-700 rounded hover:bg-gray-50 hover:border-gray-300 focus:outline-none focus:ring-1 focus:ring-[#419A6A] transition duration-150 ease-in-out text-sm shadow-sm"
+      class="w-full flex items-center justify-center py-1.5 px-3 bg-dark-bg-tertiary border border-dark-border-secondary text-dark-text-primary rounded hover:bg-gray-700 focus:outline-none focus:ring-1 focus:ring-brand-green transition duration-150 ease-in-out text-sm shadow-sm"
     >
-      <Plus size={14} class="mr-1.5 text-[#419A6A]" />
+      <Plus size={14} class="mr-1.5 text-brand-green" />
       New Chat
     </button>
   </div>
 
   <!-- Conversation List (Scrollable) -->
-  <div class="flex-grow overflow-y-auto bg-white">
+  <div class="flex-grow overflow-y-auto bg-dark-bg-secondary">
     {#if conversations.length === 0}
         <div class="flex items-center justify-center h-full">
-            <p class="text-center text-gray-400 p-3 text-xs">No conversations yet.</p>
+            <p class="text-center text-dark-text-secondary p-3 text-xs">No conversations yet.</p>
         </div>
     {:else}
         {#each conversations as conversation (conversation.id)}
           <button 
             on:click={() => handleSelect(conversation.id)}
-            class={`w-full text-left px-3 py-2 flex items-center justify-between hover:bg-gray-50 transition-colors duration-100 
-            ${selectedConversationId === conversation.id ? 'bg-gray-100 border-l-2 border-l-[#419A6A]' : 'border-b border-gray-50'}`}
+            class={`w-full text-left px-3 py-2 flex items-center justify-between hover:bg-dark-bg-tertiary transition-colors duration-100 
+            ${selectedConversationId === conversation.id ? 'bg-dark-bg-tertiary border-l-2 border-l-brand-green' : 'border-b border-dark-border-primary'}`}
           >
-            <span class="text-sm text-gray-700 truncate max-w-[85%]">
+            <span class="text-sm text-dark-text-primary truncate max-w-[85%]">
               {conversation.name}
             </span>
             {#if conversation.unread}
-              <span class="w-1.5 h-1.5 bg-[#419A6A] rounded-full flex-shrink-0 ml-1.5" title="Unread messages"></span>
+              <span class="w-1.5 h-1.5 bg-brand-green rounded-full flex-shrink-0 ml-1.5" title="Unread messages"></span>
             {/if}
           </button>
         {/each}

@@ -196,21 +196,21 @@
 <div class="app-container">
     <!-- Loading State -->
     {#if appStatus === 'loading'}
-        <div class="flex items-center justify-center h-screen bg-gray-100">
+        <div class="flex items-center justify-center h-screen">
             <div class="text-center">
-                <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-teal-500 mx-auto mb-4"></div>
-                <p class="text-gray-600">Loading application...</p>
+                <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-brand-green mx-auto mb-4"></div>
+                <p class="text-dark-text-secondary">Loading application...</p>
             </div>
         </div>
 
     <!-- Startup Error State -->
     {:else if appStatus === 'error'}
-         <div class="flex items-center justify-center h-screen bg-red-50">
-            <div class="text-center p-8 border border-red-300 rounded bg-white shadow-lg">
-                <h1 class="text-2xl font-bold text-red-700 mb-4">Application Error</h1>
-                <p class="text-red-600">Could not start the application due to an error:</p>
-                <p class="mt-2 p-2 bg-red-100 text-red-800 rounded font-mono text-sm">{startupError || 'An unknown error occurred.'}</p>
-                 <p class="mt-4 text-sm text-gray-600">Please check your setup or try restarting the application.</p>
+         <div class="flex items-center justify-center h-screen bg-red-900">
+            <div class="text-center p-8 border border-red-500 rounded bg-dark-bg-secondary shadow-lg">
+                <h1 class="text-2xl font-bold text-red-400 mb-4">Application Error</h1>
+                <p class="text-red-300">Could not start the application due to an error:</p>
+                <p class="mt-2 p-2 bg-red-800 text-red-200 rounded font-mono text-sm">{startupError || 'An unknown error occurred.'}</p>
+                 <p class="mt-4 text-sm text-dark-text-secondary">Please check your setup or try restarting the application.</p>
             </div>
         </div>
 
@@ -235,8 +235,8 @@
     
     <!-- Fallback/Unexpected State -->
      {:else}
-        <div class="flex items-center justify-center h-screen bg-gray-100">
-            <p class="text-red-500">Unexpected application state. Please restart.</p>
+        <div class="flex items-center justify-center h-screen">
+            <p class="text-red-400">Unexpected application state. Please restart.</p>
         </div>
     {/if}
 </div>

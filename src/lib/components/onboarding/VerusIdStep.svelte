@@ -104,34 +104,32 @@
 </script>
 
 <div class="step-content-area">
-    <h1 class="text-2xl font-semibold text-gray-800 mb-2">Select VerusID</h1>
-    <p class="text-gray-600 text-normal mb-1">Choose the VerusID you want to log in with.</p>
+    <h1 class="text-2xl font-semibold text-dark-text-primary mb-2">Select VerusID</h1>
+    <p class="text-dark-text-secondary text-normal mb-1">Choose the VerusID you want to log in with.</p>
     
-    <!-- Redesigned info note with icon -->
-    <div class="flex items-center bg-blue-50 rounded-md px-3 py-2 mb-6 border-l-2 border-blue-400">
-        <svg class="w-4 h-4 text-blue-500 mr-2 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg">
+    <div class="flex items-center bg-blue-900/30 border-blue-700/50 rounded-md px-3 py-2 mb-6 border-l-2">
+        <svg class="w-4 h-4 text-blue-400 mr-2 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg">
             <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd"></path>
         </svg>
-        <span class="text-xs text-blue-700">Only identities with a private address work with Nymia</span>
+        <span class="text-xs text-blue-300">Only identities with a private address work with Nymia</span>
     </div>
 
     {#if fetchStatus === 'fetching'}
-        <div class="flex items-center justify-center text-gray-500 space-x-2 py-4">
-            <svg class="animate-spin h-5 w-5 text-gray-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+        <div class="flex items-center justify-center text-dark-text-secondary space-x-2 py-4">
+            <svg class="animate-spin h-5 w-5 text-dark-text-secondary" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                 <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
                 <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
             </svg>
             <span>Loading Identities...</span>
         </div>
     {:else if fetchStatus === 'error' && fetchError}
-        <div class="mt-4 p-3 bg-red-100 border border-red-300 rounded-md text-center">
-            <p class="text-sm font-medium text-red-800">Error Loading Identities</p>
-            <p class="text-xs text-red-700 mb-2">{fetchError}</p>
-            <!-- Show Clear Auth button even on error -->
+        <div class="mt-4 p-3 bg-red-900/40 border border-red-700/50 rounded-md text-center">
+            <p class="text-sm font-medium text-red-300">Error Loading Identities</p>
+            <p class="text-xs text-red-400 mb-2">{fetchError}</p>
             <button 
                 type="button"
                 on:click={requestClearAuthentication} 
-                class="w-full mt-2 flex justify-center py-2 px-3 border border-gray-300 rounded-md shadow-sm text-xs font-medium text-gray-700 bg-white hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition duration-150 ease-in-out"
+                class="w-full mt-2 flex justify-center py-2 px-3 border border-dark-border-primary rounded-md shadow-sm text-xs font-medium text-dark-text-primary bg-dark-bg-secondary hover:bg-dark-bg-tertiary focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-dark-bg-primary focus:ring-brand-green transition duration-150 ease-in-out"
             >
                  Clear Authentication & Start Over
             </button>
@@ -144,17 +142,15 @@
             placeholder="-- Please choose an ID --"
             on:change={handleIdSelection} 
         />
-         <!-- Clear Auth button shown separately in parent's button bar now -->
     {:else if fetchStatus === 'success' && loginIdentities.length === 0}
-        <div class="mt-4 p-3 bg-yellow-100 border border-yellow-300 rounded-md text-center">
-            <p class="text-sm font-medium text-yellow-800">No Login IDs Found</p>
-            <p class="text-xs text-yellow-700">No VerusIDs with private addresses were found in your wallet.</p>
+        <div class="mt-4 p-3 bg-yellow-900/40 border border-yellow-700/50 rounded-md text-center">
+            <p class="text-sm font-medium text-yellow-300">No Login IDs Found</p>
+            <p class="text-xs text-yellow-400">No VerusIDs with private addresses were found in your wallet.</p>
         </div>
-        <!-- Show Clear Auth button if no IDs -->
         <button 
             type="button"
             on:click={requestClearAuthentication} 
-            class="w-full mt-4 flex justify-center py-2 px-3 border border-gray-300 rounded-md shadow-sm text-xs font-medium text-gray-700 bg-white hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition duration-150 ease-in-out"
+            class="w-full mt-4 flex justify-center py-2 px-3 border border-dark-border-primary rounded-md shadow-sm text-xs font-medium text-dark-text-primary bg-dark-bg-secondary hover:bg-dark-bg-tertiary focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-dark-bg-primary focus:ring-brand-green transition duration-150 ease-in-out"
         >
             Clear Authentication & Start Over
         </button>

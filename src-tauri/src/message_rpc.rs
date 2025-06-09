@@ -3,6 +3,10 @@
 // Changes:
 // - Moved ChatMessage, ReceivedByAddressEntry, get_chat_history, get_new_received_messages, and send_private_message from verus_rpc.rs.
 // - Added necessary use statements for rpc_client, serde, serde_json, and hex.
+// - BREAKING: Implemented timestamp-based messaging system with new memo format: {message_text}//f//{sender_identity}//t//{unix_timestamp}
+// - Updated send_private_message to include UTC timestamps when sending messages.
+// - Updated message parsing logic with strict validation - messages without valid timestamps are rejected.
+// - Replaced confirmation-based sorting with timestamp-based sorting for accurate chronological ordering.
 
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
@@ -56,30 +60,49 @@ pub async fn get_chat_history(
     log::debug!("Received {} transactions for address {}", received_txs.len(), own_private_address);
 
     let mut chat_messages = Vec::new();
-    let history_marker = format!("//f//{}", target_identity_name);
 
     for tx in received_txs {
         if let Some(memostr) = tx.memostr {
-            if let Some(message_text) = memostr.strip_suffix(&history_marker) {
-                log::debug!("Found history message in tx {}: '{}'", tx.txid, message_text);
-                chat_messages.push(ChatMessage {
-                    id: tx.txid,
-                    sender: target_identity_name.clone(), // The sender is the target ID
-                    text: message_text.trim().to_string(),
-                    // TODO: Determine best way to get timestamp. blocktime might be available.
-                    // For now, using 0 as placeholder.
-                    timestamp: 0, // Placeholder - investigate using blocktime or other tx details
-                    amount: tx.amount,
-                    confirmations: tx.confirmations,
-                    direction: "received".to_string(),
-                });
+            // Parse new timestamp format: {message_text}//f//{sender_identity}//t//{timestamp}
+            if let Some(sender_marker_pos) = memostr.find("//f//") {
+                let message_text = memostr[..sender_marker_pos].trim();
+                let after_sender_marker = &memostr[sender_marker_pos + 5..]; // 5 = "//f//".len()
+                
+                if let Some(time_marker_pos) = after_sender_marker.find("//t//") {
+                    let sender_id = after_sender_marker[..time_marker_pos].trim();
+                    let timestamp_str = after_sender_marker[time_marker_pos + 5..].trim(); // 5 = "//t//".len()
+                    
+                    // Only process if this message is from the target identity
+                    if sender_id == target_identity_name {
+                        // Parse timestamp - reject message if invalid (strict parsing)
+                        if let Ok(timestamp) = timestamp_str.parse::<u64>() {
+                            log::debug!("Found history message in tx {}: '{}' from {} at timestamp {}", 
+                                tx.txid, message_text, sender_id, timestamp);
+                            chat_messages.push(ChatMessage {
+                                id: tx.txid,
+                                sender: target_identity_name.clone(),
+                                text: message_text.to_string(),
+                                timestamp: timestamp, // Use parsed timestamp
+                                amount: tx.amount,
+                                confirmations: tx.confirmations,
+                                direction: "received".to_string(),
+                            });
+                        } else {
+                            log::warn!("Skipping history message in tx {} due to invalid timestamp format: '{}'", tx.txid, timestamp_str);
+                        }
+                    }
+                } else {
+                    log::trace!("Skipping memo in tx {} (no timestamp marker): {}", tx.txid, memostr);
+                }
+            } else {
+                log::trace!("Skipping memo in tx {} (no sender marker): {}", tx.txid, memostr);
             }
         }
     }
 
     log::info!("Found {} historical messages from {}", chat_messages.len(), target_identity_name);
-    // Sort by confirmations? Or timestamp if available?
-    chat_messages.sort_by_key(|m| m.confirmations); // Example: sort by confirmations ascending
+    // Sort by timestamp descending (newest first)
+    chat_messages.sort_by_key(|m| std::cmp::Reverse(m.timestamp));
 
     Ok(chat_messages)
 }
@@ -112,41 +135,54 @@ pub async fn get_new_received_messages(
     log::debug!("Received {} total transactions (including unconfirmed) for address {}", received_txs.len(), own_private_address);
 
     let mut chat_messages = Vec::new();
-    let marker = "//f//"; // General marker to find sender
 
     for tx in received_txs {
         if let Some(memostr) = tx.memostr {
-            if let Some(marker_pos) = memostr.find(marker) {
-                let message_text = memostr[..marker_pos].trim();
-                let sender_id = memostr[marker_pos + marker.len()..].trim();
-
-                // FIX: Updated validation to allow empty message text if amount > 0
-                let is_valid_sender = sender_id.ends_with('@') && sender_id.len() > 1;
-                let has_message_content = !message_text.is_empty();
-                let has_gift_amount = tx.amount > 0.0;
+            // Parse new timestamp format: {message_text}//f//{sender_identity}//t//{timestamp}
+            if let Some(sender_marker_pos) = memostr.find("//f//") {
+                let message_text = memostr[..sender_marker_pos].trim();
+                let after_sender_marker = &memostr[sender_marker_pos + 5..]; // 5 = "//f//".len()
                 
-                if is_valid_sender && (has_message_content || has_gift_amount) {
-                    log::debug!(
-                        "Found valid message/gift in tx {}: '{}' from sender '{}', amount: {}",
-                        tx.txid,
-                        message_text, // Will be empty string if no text
-                        sender_id,
-                        tx.amount
-                    );
-                    chat_messages.push(ChatMessage {
-                        id: tx.txid,
-                        sender: sender_id.to_string(), // Sender identified from memo
-                        text: message_text.to_string(), // Correctly handles empty string
-                        timestamp: 0, // Placeholder - confirmations are primary
-                        amount: tx.amount,
-                        confirmations: tx.confirmations,
-                        direction: "received".to_string(),
-                    });
+                if let Some(time_marker_pos) = after_sender_marker.find("//t//") {
+                    let sender_id = after_sender_marker[..time_marker_pos].trim();
+                    let timestamp_str = after_sender_marker[time_marker_pos + 5..].trim(); // 5 = "//t//".len()
+                    
+                    // Parse timestamp - reject message if invalid (strict parsing)
+                    if let Ok(timestamp) = timestamp_str.parse::<u64>() {
+                        // Validate sender format
+                        let is_valid_sender = sender_id.ends_with('@') && sender_id.len() > 1;
+                        let has_message_content = !message_text.is_empty();
+                        let has_gift_amount = tx.amount > 0.0;
+                        
+                        if is_valid_sender && (has_message_content || has_gift_amount) {
+                            log::debug!(
+                                "Found valid message/gift in tx {}: '{}' from sender '{}', amount: {}, timestamp: {}",
+                                tx.txid,
+                                message_text,
+                                sender_id,
+                                tx.amount,
+                                timestamp
+                            );
+                            chat_messages.push(ChatMessage {
+                                id: tx.txid,
+                                sender: sender_id.to_string(),
+                                text: message_text.to_string(),
+                                timestamp: timestamp, // Use parsed timestamp
+                                amount: tx.amount,
+                                confirmations: tx.confirmations,
+                                direction: "received".to_string(),
+                            });
+                        } else {
+                            log::trace!("Skipping memo in tx {} due to invalid format or no content/gift: {}", tx.txid, memostr);
+                        }
+                    } else {
+                        log::warn!("Skipping message in tx {} due to invalid timestamp format: '{}'", tx.txid, timestamp_str);
+                    }
                 } else {
-                    log::trace!("Skipping memo in tx {} due to invalid format or no content/gift: {}", tx.txid, memostr);
+                    log::trace!("Skipping memo in tx {} (no timestamp marker): {}", tx.txid, memostr);
                 }
             } else {
-                log::trace!("Skipping memo in tx {} (no valid marker): {}", tx.txid, memostr);
+                log::trace!("Skipping memo in tx {} (no sender marker): {}", tx.txid, memostr);
             }
         } // Ignore transactions without memos
     }
@@ -179,18 +215,24 @@ pub async fn send_private_message(
     );
     log::debug!("Original memo text: \"{}\"", memo_text);
 
-    // 1. Construct the full memo string
-    let full_memo = format!("{}//f//{}", memo_text, sender_identity);
-    log::debug!("Constructed memo string: \"{}\"", full_memo);
+    // 1. Generate UTC timestamp when sending to blockchain
+    let timestamp = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap()
+        .as_secs();
 
-    // 2. Convert the memo string to its hexadecimal representation
+    // 2. Construct the full memo string with timestamp
+    let full_memo = format!("{}//f//{}//t//{}", memo_text, sender_identity, timestamp);
+    log::debug!("Constructed memo string with timestamp: \"{}\" (timestamp: {})", full_memo, timestamp);
+
+    // 3. Convert the memo string to its hexadecimal representation
     // Ensure the memo is not too long - z_sendmany memo limit is typically 512 bytes.
     // Hex encoding doubles the length, so the original memo should be < 256 bytes.
     // The frontend already limits input to 412 characters, which is safe.
     let memo_hex = hex::encode(full_memo.as_bytes());
     log::debug!("Hex encoded memo: {}", memo_hex);
 
-    // 3. Construct the parameters for the z_sendmany RPC call
+    // 4. Construct the parameters for the z_sendmany RPC call
     let amounts_param = json!([
         {
             "address": recipient_z_address,
@@ -206,7 +248,7 @@ pub async fn send_private_message(
         // fee (optional, default 0.0001) - Daemon handles this
     ];
 
-    // 4. Make the RPC call
+    // 5. Make the RPC call
     log::info!("Executing z_sendmany...");
     match make_rpc_call::<String>(&rpc_user, &rpc_pass, "z_sendmany", params).await {
         Ok(txid) => {

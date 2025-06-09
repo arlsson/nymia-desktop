@@ -58,7 +58,7 @@ onMount(() => {
   {#if visible}
     <!-- Welcome Text -->
     <p 
-      class="text-sm text-gray-600 tracking-tight"
+      class="text-sm text-dark-text-primary tracking-tight"
       transition:fade={{ duration: 800, delay: 700 }}
     >
       Welcome, full&#8209;node runner. Your privacy starts now.

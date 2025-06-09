@@ -16,6 +16,10 @@
 // - Added chat persistence logic (prompt, load/save settings, convos, messages).
 // - Added PersistencePromptModal.
 // - Added SettingsView integration.
+// - BREAKING: Implemented timestamp-based messaging system replacing block-height sorting.
+// - Simplified message sorting to use Unix timestamps only (no more complex block calculations).
+// - Updated optimistic message creation to use Unix seconds timestamps.
+// - Removed sentAtBlockHeight dependencies and complex sorting logic.
 
   import { createEventDispatcher, onMount, onDestroy } from 'svelte';
   import { invoke } from '@tauri-apps/api/core';
@@ -140,7 +144,7 @@
                            identityIAddress: loggedInUserIAddress,
                            conversationId: convo.id
                        });
-                       loadedMessages[convo.id] = sortMessages(savedMessages || [], blockHeight); 
+                       loadedMessages[convo.id] = sortMessages(savedMessages || []); 
                        console.log(`ChatInterface: Loaded ${loadedMessages[convo.id].length} messages for ${convo.id}`);
                    } catch (msgError) {
                        console.error(`ChatInterface: Error loading messages for conversation ${convo.id}:`, msgError);
@@ -314,23 +318,17 @@
       }
   }
 
-  // Comparison function for sorting messages
+  // Simplified comparison function for timestamp-based sorting
   function compareMessages(a: ChatMessage, b: ChatMessage): number {
-    // Primary sort: Timestamp descending (newest first in array)
+    // Primary sort: Timestamp descending (newest first)
     const timestampDiff = b.timestamp - a.timestamp;
     if (timestampDiff !== 0) {
         return timestampDiff;
     }
-
-    // Secondary sort (tie-breaker, e.g., for received messages with timestamp 0):
-    // Confirmations ascending (more confirmations = older, comes later in descending sort)
-    // This maintains relative order for messages potentially received in the same block
-    if (a.direction === 'received' && b.direction === 'received') {
-        return a.confirmations - b.confirmations; 
-    }
-
-    // If timestamps are identical and not both received, maintain original order (or arbitrary)
-    return 0;
+    
+    // Secondary sort (tie-breaker): Transaction ID lexicographical
+    // This handles the rare case of identical timestamps
+    return b.id.localeCompare(a.id);
   }
 
   // --- Event Handlers ---
@@ -375,8 +373,7 @@
         id: `msg-${Date.now()}-${Math.random()}`, // Temporary unique ID
         sender: 'self',
         text: messageText,
-        timestamp: Date.now(), // Keep for potential future use/tie-breaking?
-        sentAtBlockHeight: blockHeight || 0, // Store block height when sent (use 0 if unavailable)
+        timestamp: Math.floor(Date.now() / 1000), // Convert to Unix seconds to match backend
         status: 'sent', // Initial optimistic status
         amount: amount || 0,
         confirmations: 0, // Sent messages have 0 confirmations locally
@@ -388,8 +385,8 @@
     // Create a *new* array with the new message added
     const newList = [...currentList, newMessage];
     
-    // Sort the new list using the current block height
-    messages[selectedConversationId] = sortMessages(newList, blockHeight);
+    // Sort the new list using timestamps
+    messages[selectedConversationId] = sortMessages(newList);
     
     // Trigger top-level reactivity by creating a new messages object reference
     messages = { ...messages }; 
@@ -492,7 +489,7 @@
         }
     }
     // Ensure messages are sorted after potential merge
-    messages[newConversationId] = sortMessages(currentMessages, blockHeight); // Sort merged history
+    messages[newConversationId] = sortMessages(currentMessages); // Sort merged history
     messages = { ...messages }; // Trigger reactivity for messages
 
     // 3. Select the new conversation
@@ -630,7 +627,7 @@
   $: {
     const rawMessages = selectedConversationId ? (messages[selectedConversationId] || []) : [];
     // Always ensure messages are sorted just before display
-    selectedMessages = sortMessages(rawMessages, blockHeight);
+    selectedMessages = sortMessages(rawMessages);
   } 
   $: selectedContactName = showSettingsView ? null : selectedConversationId ? conversations.find(c => c.id === selectedConversationId)?.name : null; // Don't show contact name if settings are open
 
@@ -641,69 +638,24 @@
       pendingSinceBlock = null;
   }
 
-  // --- Sorting Logic (Using Effective Block Height) ---
-  function sortMessages(messageList: ChatMessage[], currentBh: number | null): ChatMessage[] {
-      if (currentBh === null) return messageList; // Cannot sort without current height
-
+  // --- Simple Timestamp-Based Sorting Logic ---
+  function sortMessages(messageList: ChatMessage[]): ChatMessage[] {
       return messageList.sort((a, b) => {
-          const blockA = getEffectiveBlockHeight(a, currentBh);
-          const blockB = getEffectiveBlockHeight(b, currentBh);
-
-          // Handle nulls (messages where block couldn't be determined - place them older/top)
-          if (blockA === null && blockB === null) return 0;
-          if (blockA === null) return 1; 
-          if (blockB === null) return -1;
-
-          // Primary sort: Effective Block Height DESCENDING (newest block first in array)
-          if (blockB !== blockA) {
-              return blockB - blockA; 
+          // Primary sort: Timestamp descending (newest first)
+          const timestampDiff = b.timestamp - a.timestamp;
+          if (timestampDiff !== 0) {
+              return timestampDiff;
           }
-
-          // Secondary sort (tie-breaker for same block): 
-          // Prefer Sent messages slightly earlier (lower in array, visually higher) than received in same block
-          if (a.direction !== b.direction) {
-               return a.direction === 'sent' ? -1 : 1;
-          }
-
-          // Tertiary sort (if both sent or both received in same block):
-          if (a.direction === 'sent') {
-              // Timestamp descending for sent (newest timestamp first)
-              return (b.timestamp || 0) - (a.timestamp || 0); 
-          } else {
-              // Confirmations ascending for received (lowest confirmations first - means newer)
-              return (a.confirmations ?? 0) - (b.confirmations ?? 0); 
-          }
+          
+          // Secondary sort (tie-breaker): Transaction ID lexicographical
+          // This handles the rare case of identical timestamps
+          return b.id.localeCompare(a.id);
       });
-  }
-
-  function getEffectiveBlockHeight(message: ChatMessage, currentBh: number): number | null {
-      if (message.direction === 'sent') {
-          if (message.sentAtBlockHeight !== undefined && message.sentAtBlockHeight !== null) {
-              return message.sentAtBlockHeight; // Use proper block height if available
-          } else if (message.timestamp) {
-              // For historical sent messages without sentAtBlockHeight, use timestamp for relative ordering
-              // Assume 1 minute per block, estimate how many blocks ago this message was sent
-              const now = Date.now();
-              const messageTime = message.timestamp;
-              const minutesAgo = Math.floor((now - messageTime) / 60000);
-              
-              // Don't go before block 0 and cap at a reasonable value
-              // Messages more than currentBh blocks old will appear at the top
-              return Math.max(0, currentBh - Math.min(currentBh, minutesAgo));
-          }
-          return null; // Last resort if no timestamp either
-      } else { // Received
-          if (message.confirmations === undefined || message.confirmations === null) {
-              return null; // Cannot determine block if confirmations are missing
-          }
-          // Use confirmations for received. Handle unconfirmed (0 confs) as current block.
-          return currentBh - message.confirmations;
-      }
   }
 
 </script>
 
-<div class="flex flex-col h-screen bg-gray-50 font-sans text-sm">
+<div class="flex flex-col h-screen font-sans text-sm">
   <!-- Top Bar -->
   <TopBar 
     verusIdName={loggedInIdentity?.formatted_name || 'Unknown User'} 
@@ -715,10 +667,10 @@
   />
 
   <!-- Main Content Area (Sidebar + Chat View / Settings View) -->
-  <div class="flex flex-grow overflow-hidden border-t border-gray-200"> 
+  <div class="flex flex-grow overflow-hidden border-t border-dark-border-primary">
     
     <!-- Left Sidebar -->
-    <div class="w-[25%] max-w-[300px] min-w-[200px] flex-shrink-0 bg-white border-r border-gray-200 flex flex-col shadow-sm">
+    <div class="w-[25%] max-w-[300px] min-w-[200px] flex-shrink-0 bg-dark-bg-secondary border-r border-dark-border-primary flex flex-col shadow-sm">
       <ConversationsList 
         conversations={conversations}
         selectedConversationId={selectedConversationId}
@@ -728,7 +680,7 @@
     </div>
 
     <!-- Right Panel (Chat View OR Settings View) -->
-    <div class="flex-grow flex flex-col bg-gray-50">
+    <div class="flex-grow flex flex-col">
       {#if showSettingsView}
           <SettingsView 
               currentPersistenceSetting={persistenceSetting}

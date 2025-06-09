@@ -4,6 +4,8 @@
 // - Added ChatMessage type for imported history.
 // - Added optional 'status' field to ChatMessage.
 // - Added Conversation type, including recipient_private_address.
+// - BREAKING: Updated ChatMessage to use Unix timestamp in seconds for timestamp-based ordering.
+// - Removed sentAtBlockHeight field as block-height sorting is replaced by timestamp sorting.
 
 // Credentials for Verus RPC connection
 export interface Credentials {
@@ -40,17 +42,16 @@ export type OnboardingStep = 'welcome' | 'blockchain' | 'credentials' | 'verusid
 // Type alias for the private balance
 export type PrivateBalance = number | null;
 
-// Structure for chat messages (especially imported ones)
+// Structure for chat messages (with timestamp-based ordering)
 export interface ChatMessage {
     id: string; // txid or generated ID for sent messages
     sender: string | 'self'; // VerusID of the sender (@ format) or 'self'
     text: string;
-    timestamp: number; // Placeholder for now, investigate source (blocktime?)
+    timestamp: number; // Unix timestamp in seconds (UTC) when message was sent to blockchain
     amount: number;
     confirmations: number;
-    direction: 'received' | 'sent'; // Initially only 'received' from history
+    direction: 'received' | 'sent';
     status?: 'sent' | 'delivered' | 'failed'; // Optional delivery status for sent messages
-    sentAtBlockHeight?: number; // Block height when the message was sent (for sent messages)
 }
 
 // Structure for conversation entries in the list

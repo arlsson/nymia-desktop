@@ -1,9 +1,16 @@
 // File: src/lib/utils/timeFormatter.ts
-// Description: Utility function to format relative time based on block confirmations.
+// Description: Utility functions to format relative time for chat messages.
+// Changes:
+// - Updated formatRelativeTimeFromTimestamp to work with Unix timestamps in seconds (UTC).
+// - Deprecated formatRelativeTimeFromConfirmations (legacy function for old messages).
+// - Timestamps are stored in UTC but displayed in user's local timezone automatically.
 
 /**
  * Formats a relative time string based on the number of confirmations.
  * Assumes 1 confirmation ≈ 1 minute.
+ * 
+ * @deprecated This function is used for legacy messages without timestamps.
+ * New messages use timestamp-based ordering via formatRelativeTimeFromTimestamp().
  * 
  * @param confirmations - The number of confirmations for the transaction.
  * @returns A formatted relative time string (e.g., "Just now", "5m ago", "2h ago", "1d ago").
@@ -39,9 +46,10 @@ export function formatRelativeTimeFromConfirmations(confirmations: number | null
 } 
 
 /**
- * Formats a relative time string based on a JavaScript timestamp.
+ * Formats a relative time string based on a Unix timestamp in seconds.
+ * The Date constructor automatically converts to user's local timezone for display.
  * 
- * @param timestamp - The JavaScript timestamp (milliseconds since epoch).
+ * @param timestamp - The Unix timestamp in seconds (UTC) since epoch.
  * @returns A formatted relative time string (e.g., "Just now", "5m ago", "2h ago", "Yesterday", "MM/DD/YYYY").
  */
 export function formatRelativeTimeFromTimestamp(timestamp: number | null | undefined): string {
@@ -49,8 +57,8 @@ export function formatRelativeTimeFromTimestamp(timestamp: number | null | undef
         return ''; // Return empty if timestamp is invalid
     }
 
-    const now = Date.now();
-    const secondsAgo = Math.round((now - timestamp) / 1000);
+    const now = Math.floor(Date.now() / 1000); // Convert current time to seconds
+    const secondsAgo = now - timestamp;
 
     if (secondsAgo < 60) {
         return "Just now";
@@ -72,7 +80,7 @@ export function formatRelativeTimeFromTimestamp(timestamp: number | null | undef
     }
     
     // After Yesterday, show the date
-    const date = new Date(timestamp);
+    const date = new Date(timestamp * 1000); // Convert Unix seconds to milliseconds for Date constructor
     const year = date.getFullYear();
     const currentYear = new Date().getFullYear();
     

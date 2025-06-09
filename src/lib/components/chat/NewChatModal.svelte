@@ -1,6 +1,6 @@
 <script lang="ts">
 // Component: src/lib/components/chat/NewChatModal.svelte
-// Description: Modal popup for starting a new chat conversation.
+// Description: Modal popup for starting a new chat conversation (Dark Theme).
 // Handles VerusID input, eligibility checks, history import option, and initiation.
 // Changes:
 // - Refined UI with transitions
@@ -8,8 +8,10 @@
 // - Used consistent green color scheme from OnboardingFlow
 // - Made UI more compact
 // - Added Escape key listener for modal dismissal (Accessibility)
-// - Added ARIA roles and attributes to modal container (Accessibility)
+// - Added ARIA roles and attributes to modal container, including tabindex="-1" on dialog role (Accessibility)
 // - Added Enter key listener to input field to trigger Find User/Start Chat.
+// - Added keyboard accessibility (Enter/Space) and tabindex to modal backdrop with button role.
+
 
 	import { createEventDispatcher, onMount, onDestroy } from 'svelte';
 	import { invoke } from '@tauri-apps/api/core';
@@ -85,6 +87,18 @@
     $: isFindDisabled = isLoading || targetVerusId.trim().length < 3 || !targetVerusId.includes('@') || (isError && statusMessage === 'You already have a conversation with this user.');
     // Enable/disable Start Chat button
     $: isStartDisabled = isLoading || !isSuccess;
+
+    // Reactive class strings for buttons (Dark Theme)
+    $: findUserButtonClasses = `py-2 px-3 border border-transparent rounded-md shadow-sm text-xs font-medium text-white focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-dark-bg-primary focus:ring-brand-green disabled:opacity-60 disabled:cursor-not-allowed transition-colors flex items-center hover:bg-brand-green-hover ${isFindDisabled ? 'bg-brand-green-disabled' : 'bg-brand-green'}`;
+    $: startChatButtonClasses = `py-2 px-3 border border-transparent rounded-md shadow-sm text-xs font-medium text-white focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-dark-bg-primary focus:ring-brand-green disabled:opacity-60 disabled:cursor-not-allowed transition-colors flex items-center hover:bg-brand-green-hover ${isStartDisabled ? 'bg-brand-green-disabled' : 'bg-brand-green'}`;
+
+    // Reactive class string for status message box
+    $: statusMessageClasses = `p-2 text-xs rounded-md border flex items-start space-x-2 
+        ${isError ? 'bg-red-900/40 border-red-700/50 text-red-300' : 
+          !isError && isLoading ? 'bg-blue-900/40 border-blue-700/50 text-blue-300' : 
+          isSuccess ? 'bg-brand-green/20 border-brand-green/30 text-green-300' : 
+          !isError && !isLoading && !isSuccess && checkAttempted ? 'bg-yellow-900/40 border-yellow-700/50 text-yellow-300' : 
+          !isError && !isLoading && !isSuccess && !checkAttempted && statusMessage ? 'bg-dark-bg-primary border-dark-border-secondary text-dark-text-secondary' : ''}`;
 
 	// --- Functions --- 
 	function closeModal() {
@@ -180,7 +194,7 @@
 		closeModal();
 	}
 
-    function handleInputKeydown(event: KeyboardEvent) {
+        function handleInputKeydown(event: KeyboardEvent) {
         if (event.key === 'Enter') {
             event.preventDefault(); // Prevent default form submission behavior
             if (isSuccess && !isStartDisabled) {
@@ -191,38 +205,48 @@
         }
     }
 
+    function handleBackdropKeydown(event: KeyboardEvent) {
+        if (event.key === 'Enter' || event.key === ' ') {
+            event.preventDefault();
+            closeModal();
+        }
+    }
+
 </script>
 
 {#if showModal}
 <div 
-    class="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-40 backdrop-blur-sm transition-opacity duration-200" 
+    class="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-60 backdrop-blur-sm transition-opacity duration-200" 
     class:opacity-100={showModal}
     class:opacity-0={!showModal}
     transition:fade={{ duration: 150 }}
-    on:click={closeModal} 
-    role="presentation"
+    on:click={closeModal}
+    on:keydown={handleBackdropKeydown}
+    role="button"
+    tabindex="0"
 >
     <!-- Modal Content -->
     <div 
         bind:this={modalElement}
-        class="bg-white rounded-lg shadow-xl w-full max-w-sm overflow-hidden transform transition-all duration-300 border border-gray-100"
+        class="bg-dark-bg-secondary rounded-lg shadow-xl w-full max-w-sm overflow-hidden transform transition-all duration-300 border border-dark-border-primary"
         class:scale-100={showModal}
         class:scale-95={!showModal}
         transition:scale={{ duration: 200, easing: quintOut }}
         on:click|stopPropagation
-        role="dialog" 
+        role="dialog"
+        tabindex="-1"
         aria-modal="true"
         aria-labelledby={modalHeaderId}
     >
         <!-- Modal Header with Icon -->
-        <div class="flex items-center p-3 border-b border-gray-200 bg-gray-50">
-            <div class="p-1.5 bg-green-50 rounded-full mr-2">
-                <UserPlus size={16} class="text-green-600" />
+        <div class="flex items-center p-3 border-b border-dark-border-primary bg-dark-bg-primary">
+            <div class="p-1.5 bg-brand-green/20 rounded-full mr-2">
+                <UserPlus size={16} class="text-brand-green" />
             </div>
-            <h2 class="text-base font-medium text-gray-800 flex-grow" id={modalHeaderId}>Start New Chat</h2>
+            <h2 class="text-base font-medium text-dark-text-primary flex-grow" id={modalHeaderId}>Start New Chat</h2>
             <button 
                 on:click={closeModal}
-                class="text-gray-400 hover:text-gray-600 p-1 rounded-full hover:bg-gray-100 transition-colors focus:outline-none focus:ring-1 focus:ring-gray-200"
+                class="text-dark-text-secondary hover:text-dark-text-primary p-1 rounded-full hover:bg-dark-bg-tertiary transition-colors focus:outline-none focus:ring-1 focus:ring-dark-border-secondary"
                 aria-label="Close modal"
             >
                 <X size={16} strokeWidth={2.5} />
@@ -232,7 +256,7 @@
         <!-- Modal Body -->
         <div class="p-4 space-y-3">
             <div class="space-y-1.5">
-                <label for="verusid-input" class="block text-sm font-medium text-gray-700">Enter VerusID</label>
+                <label for="verusid-input" class="block text-sm font-medium text-dark-text-secondary">Enter VerusID</label>
                 <div class="relative">
                     <input 
                         type="text" 
@@ -240,7 +264,7 @@
                         bind:value={targetVerusId}
                         placeholder="friend@ or friend.parent@"
                         disabled={isLoading || isSuccess}
-                        class="w-full p-2 border border-gray-300 rounded-md shadow-sm text-sm focus:ring-1 focus:ring-green-500 focus:border-green-500 disabled:bg-gray-50 disabled:cursor-not-allowed transition-colors duration-200"
+                        class="w-full p-2 border border-dark-border-secondary rounded-md shadow-sm text-sm focus:ring-1 focus:ring-brand-green focus:border-brand-green disabled:bg-dark-bg-primary disabled:cursor-not-allowed transition-colors duration-200 bg-dark-bg-tertiary text-dark-text-primary placeholder-dark-text-disabled"
                         on:keydown={handleInputKeydown}
                     />
                 </div>
@@ -249,23 +273,18 @@
             <!-- Status/Error Area -->
             {#if statusMessage}
                 <div 
-                    class="p-2 text-xs rounded-md border flex items-start space-x-2" 
-                    class:bg-red-50={isError} class:border-red-200={isError} class:text-red-700={isError}
-                    class:bg-blue-50={!isError && isLoading} class:border-blue-200={!isError && isLoading} class:text-blue-700={!isError && isLoading}
-                    class:bg-green-50={isSuccess} class:border-green-200={isSuccess} class:text-green-700={isSuccess}
-                    class:bg-yellow-50={!isError && !isLoading && !isSuccess && checkAttempted} class:border-yellow-200={!isError && !isLoading && !isSuccess && checkAttempted} class:text-yellow-700={!isError && !isLoading && !isSuccess && checkAttempted}
-                    class:bg-gray-50={!isError && !isLoading && !isSuccess && !checkAttempted && statusMessage} class:border-gray-200={!isError && !isLoading && !isSuccess && !checkAttempted && statusMessage} class:text-gray-600={!isError && !isLoading && !isSuccess && !checkAttempted && statusMessage}
+                    class={statusMessageClasses}
                     transition:fly={{ y: 5, duration: 200 }}
                 >
                     <div class="mt-0.5">
                         {#if isLoading}
-                            <Loader2 size={14} class="animate-spin text-blue-500" />
+                            <Loader2 size={14} class="animate-spin text-blue-400" />
                         {:else if isError}
-                            <AlertTriangle size={14} class="text-red-500" />
+                            <AlertTriangle size={14} class="text-red-400" />
                         {:else if isSuccess}
-                            <CheckCircle size={14} class="text-green-600" />
+                            <CheckCircle size={14} class="text-green-400" />
                         {:else}
-                            <Info size={14} class="text-gray-500" />
+                            <Info size={14} class="text-dark-text-secondary" />
                         {/if}
                     </div>
                     <span>{statusMessage}</span>
@@ -275,29 +294,29 @@
             <!-- History Import Option -->
             {#if isSuccess && foundHistory && foundHistory.length > 0}
                 <div 
-                    class="flex items-center p-2 bg-green-50 border border-green-100 rounded-md mt-2 transition-all"
+                    class="flex items-center p-2 bg-brand-green/10 border border-brand-green/20 rounded-md mt-2 transition-all"
                     transition:fly={{ y: 10, duration: 300 }}
                 >
                     <input 
                         type="checkbox" 
                         id="import-history-checkbox"
                         bind:checked={importHistory}
-                        class="h-4 w-4 text-green-600 border-gray-300 rounded focus:ring-green-500"
+                        class="h-4 w-4 text-brand-green border-dark-border-secondary rounded focus:ring-brand-green bg-dark-bg-tertiary"
                     />
-                    <label for="import-history-checkbox" class="ml-2 block text-xs text-gray-700 font-medium">
+                    <label for="import-history-checkbox" class="ml-2 block text-xs text-dark-text-primary font-medium">
                         Import existing chat history 
-                        <span class="font-normal text-gray-500">({foundHistory.length} {foundHistory.length === 1 ? 'message' : 'messages'})</span>
+                        <span class="font-normal text-dark-text-secondary">({foundHistory.length} {foundHistory.length === 1 ? 'message' : 'messages'})</span>
                     </label>
                 </div>
             {/if}
         </div>
 
         <!-- Modal Footer -->
-        <div class="px-4 py-3 bg-gray-50 border-t border-gray-200 flex justify-end space-x-3">
+        <div class="px-4 py-3 bg-dark-bg-primary border-t border-dark-border-primary flex justify-end space-x-3">
             <button 
                 type="button"
                 on:click={closeModal}
-                class="py-2 px-3 border border-gray-300 rounded-md shadow-sm text-xs font-medium text-gray-700 bg-white hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-200 transition-colors"
+                class="py-2 px-3 border border-dark-border-secondary rounded-md shadow-sm text-xs font-medium text-dark-text-primary bg-dark-bg-tertiary hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-dark-bg-primary focus:ring-dark-border-secondary transition-colors"
             >
                 Cancel
             </button>
@@ -307,8 +326,7 @@
                     type="button"
                     on:click={handleFindUser} 
                     disabled={isFindDisabled} 
-                    class="py-2 px-3 border border-transparent rounded-md shadow-sm text-xs font-medium text-white focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 disabled:opacity-60 disabled:cursor-not-allowed transition-colors flex items-center hover:bg-green-700"
-                    style={`background-color: ${isFindDisabled ? '#9fcfb8' : '#419A6A'};`}
+                    class={findUserButtonClasses}
                 >
                     {#if isLoading}
                         <Loader2 size={14} class="animate-spin mr-1.5" />
@@ -323,8 +341,7 @@
                     type="button"
                     on:click={handleStartChat}
                     disabled={isStartDisabled}
-                    class="py-2 px-3 border border-transparent rounded-md shadow-sm text-xs font-medium text-white focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 disabled:opacity-60 disabled:cursor-not-allowed transition-colors hover:bg-green-700 flex items-center"
-                    style={`background-color: ${isStartDisabled ? '#9fcfb8' : '#419A6A'};`}
+                    class={startChatButtonClasses}
                 >
                     <Send size={14} class="mr-1.5" />
                     Start Chat

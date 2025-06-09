@@ -61,72 +61,68 @@
 
 </script>
 
-<div class="flex flex-col h-full bg-gray-50">
+<div class="flex flex-col h-full">
   {#if contactName}
-    <!-- Chat Header with improved name display -->
-    <div class="flex items-center h-[50px] px-3 bg-white border-b border-gray-200 flex-shrink-0 shadow-sm">
-      <span class="font-medium text-base text-gray-800 truncate max-w-[80%]">{contactName}</span>
-      <!-- Add other header elements like contact info button later -->
+    <!-- Chat Header -->
+    <div class="flex items-center h-[50px] px-3 bg-dark-bg-secondary border-b border-dark-border-primary flex-shrink-0 shadow-sm">
+      <span class="font-medium text-base text-dark-text-primary truncate max-w-[80%]">{contactName}</span>
     </div>
 
     <!-- Message List (Scrollable & Reversed) -->
     <div 
         bind:this={chatContainer} 
-        class="flex-grow p-3 overflow-y-auto bg-gray-100 flex flex-col-reverse"
+        class="flex-grow p-3 overflow-y-auto bg-dark-bg-primary flex flex-col-reverse"
     >
       {#if messages.length > 0}
           {#each messages as message (message.id)}
             <div class="flex mb-3" class:justify-end={message.sender === 'self'}>
               <div 
-                class="py-2 px-3 rounded-lg max-w-[75%] shadow-sm text-gray-800 flex flex-col"
-                class:bg-white={message.sender !== 'self'}
-                class:bg-[#F0F7F4]={message.sender === 'self'} 
-                class:border-[#E0F0E9]={message.sender === 'self'}
+                class="py-2 px-3 rounded-lg max-w-[75%] shadow-sm flex flex-col"
+                class:bg-dark-bg-tertiary={message.sender !== 'self'}
+                class:text-dark-text-primary={message.sender !== 'self'}
+                class:bg-brand-green={message.sender === 'self'} 
+                class:text-white={message.sender === 'self'} 
+                class:border-brand-green={message.sender === 'self'}
                 class:border={message.sender === 'self'}
               >
-                <!-- Enhanced Amount Display with Colorful Gradient & Animation (if received and > 0) -->
+                <!-- Enhanced Amount Display (Received) -->
                 {#if message.direction === 'received' && message.amount > 0}
                     <div class="gift-notification-container relative mb-2.5 overflow-hidden rounded-md p-0.5">
-                        <!-- Rainbow gradient background -->
                         <div class="absolute inset-0 bg-gradient-to-r from-purple-500 via-blue-500 via-teal-400 via-yellow-400 to-orange-500 gift-pulse"></div>
-                        <div class="flex items-center rounded-md bg-white bg-opacity-85 backdrop-blur-sm p-2.5 relative">
+                        <div class="flex items-center rounded-md bg-dark-bg-tertiary bg-opacity-90 backdrop-blur-sm p-2.5 relative">
                            <div class="flex items-center">
                                <div class="p-1.5 bg-gradient-to-br from-indigo-500 via-purple-500 to-pink-500 rounded-full mr-2.5 text-white gift-icon-pulse">
                                    <Gift size={18} />
                                </div>
                                <div class="flex flex-col">
-                                   <span class="text-xs font-semibold text-gray-700">
-                                       <!-- Updated Text -->
+                                   <span class="text-xs font-semibold text-dark-text-secondary">
                                        {message.sender} sent you a gift!
                                    </span>
-                                   <span class="text-sm font-bold bg-clip-text text-transparent bg-gradient-to-r from-purple-600 via-blue-600 to-pink-600">
+                                   <span class="text-sm font-bold bg-clip-text text-transparent bg-gradient-to-r from-purple-400 via-blue-400 to-pink-400">
                                        {message.amount.toFixed(8)} VRSC
                                    </span>
                                </div>
                            </div>
                         </div>
                      </div>
-                <!-- Simple Gift Display for Sent Messages (no animation) -->
+                <!-- Simple Gift Display (Sent) -->
                 {:else if message.direction === 'sent' && message.amount > 0}
-                    <div class="flex items-center mb-2.5 bg-[#E0F0E9] p-2 rounded-md">
-                        <div class="p-1 bg-[#419A6A] rounded-full mr-2 text-white flex-shrink-0">
+                    <div class="flex items-center mb-2.5 bg-brand-green/80 p-2 rounded-md">
+                        <div class="p-1 bg-white/20 rounded-full mr-2 text-white flex-shrink-0">
                             <Gift size={14} />
                         </div>
                         <div>
-                            <span class="text-xs font-medium text-gray-700">You sent a gift</span>
-                            <span class="text-sm font-semibold text-[#419A6A] block">
+                            <span class="text-xs font-medium text-gray-200">You sent a gift</span>
+                            <span class="text-sm font-semibold text-white block">
                                 {message.amount.toFixed(8)} VRSC
                             </span>
                         </div>
                     </div>
                 {/if}
                 
-                <!-- Message Text -->
                 <p class="text-sm" style="font-family: 'IBM Plex Mono', monospace;">{message.text}</p>
                 
-                <!-- Timestamp / Status Row -->
-                <div class="text-xs mt-1.5 text-gray-500 text-right flex justify-end items-center self-end">
-                  <!-- Relative time formatting -->
+                <div class="text-xs mt-1.5 text-dark-text-secondary text-right flex justify-end items-center self-end">
                   <span>
                       {#if message.direction === 'received'}
                           {formatRelativeTimeFromConfirmations(message.confirmations)}
@@ -134,20 +130,17 @@
                           {formatRelativeTimeFromTimestamp(message.timestamp)}
                       {/if}
                   </span>
-                  
-                  <!-- Status indicator removed -->
-                  <!-- {#if message.sender === 'self' && message.status} ... {/if} -->
                 </div>
               </div>
             </div>
           {/each}
       {:else}
-          <p class="text-center text-gray-400 text-xs py-4">Start the conversation!</p>
+          <p class="text-center text-dark-text-secondary text-xs py-4">Start the conversation!</p>
       {/if}
     </div>
 
     <!-- Message Input Area -->
-    <div class="flex-shrink-0 bg-white border-t border-gray-200">
+    <div class="flex-shrink-0 bg-dark-bg-secondary border-t border-dark-border-primary">
       <MessageInput 
         {privateBalance}  
         {isTransactionPending}
@@ -157,9 +150,9 @@
 
   {:else}
     <!-- Empty State (No Conversation Selected) -->
-    <div class="flex-grow flex items-center justify-center bg-gray-100">
-      <div class="text-center text-gray-400 p-4">
-         <svg xmlns="http://www.w3.org/2000/svg" class="mx-auto h-10 w-10 text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1">
+    <div class="flex-grow flex items-center justify-center bg-dark-bg-primary">
+      <div class="text-center text-dark-text-secondary p-4">
+         <svg xmlns="http://www.w3.org/2000/svg" class="mx-auto h-10 w-10 text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1">
             <path stroke-linecap="round" stroke-linejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
           </svg>
         <p class="mt-2 text-sm font-medium">Select a conversation</p>
@@ -170,7 +163,7 @@
 </div>
 
 <style>
-  /* Subtle scrollbar styling */
+  /* Subtle scrollbar styling for dark theme */
   ::-webkit-scrollbar {
     width: 4px;
   }
@@ -178,11 +171,11 @@
     background: transparent; 
   }
   ::-webkit-scrollbar-thumb {
-    background: #ddd;
+    background: #4B5563; /* dark-bg-tertiary / gray-600 */
     border-radius: 2px;
   }
   ::-webkit-scrollbar-thumb:hover {
-    background: #ccc;
+    background: #6B7280; /* gray-500 */
   }
 
   /* Gift notification animation */
