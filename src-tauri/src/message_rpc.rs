@@ -7,11 +7,15 @@
 // - Updated send_private_message to include UTC timestamps when sending messages.
 // - Updated message parsing logic with strict validation - messages without valid timestamps are rejected.
 // - Implemented chronological timestamp-based sorting (oldest first) for consistent message ordering.
+// - SECURITY: Added mandatory cryptographic message signing and verification
+// - BREAKING: Extended message format to {message_text}//f//{sender_identity}//t//{unix_timestamp}//{signature}
+// - Zero-trust approach: Only verified messages are displayed, unverified messages are silently filtered
+// - Message sending fails if signing fails (no fallback to unsigned messages)
 
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use hex;
-use super::rpc_client::{make_rpc_call, VerusRpcError};
+use super::rpc_client::{make_rpc_call, sign_message, verify_message, VerusRpcError};
 
 // Struct for imported chat messages
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -38,6 +42,65 @@ pub struct ReceivedByAddressEntry {
     // blocktime: Option<u64>, // Add blocktime if available and needed for timestamp
 }
 
+// Helper function to parse message with signature verification
+async fn parse_and_verify_message(
+    rpc_user: &str,
+    rpc_pass: &str,
+    memo: &str,
+    txid: &str,
+) -> Option<(String, String, u64, String)> { // Returns (message_text, sender_id, timestamp, signature) if valid
+    // Parse new signature format: {message_text}//f//{sender_identity}//t//{timestamp}//{signature}
+    if let Some(sender_marker_pos) = memo.find("//f//") {
+        let message_text = memo[..sender_marker_pos].trim();
+        let after_sender_marker = &memo[sender_marker_pos + 5..]; // 5 = "//f//".len()
+        
+        if let Some(time_marker_pos) = after_sender_marker.find("//t//") {
+            let sender_id = after_sender_marker[..time_marker_pos].trim();
+            let after_time_marker = &after_sender_marker[time_marker_pos + 5..]; // 5 = "//t//".len()
+            
+            if let Some(sig_marker_pos) = after_time_marker.find("//") {
+                let timestamp_str = after_time_marker[..sig_marker_pos].trim();
+                let signature = after_time_marker[sig_marker_pos + 2..].trim(); // 2 = "//".len()
+                
+                // Parse timestamp - reject message if invalid (strict parsing)
+                if let Ok(timestamp) = timestamp_str.parse::<u64>() {
+                    // Reconstruct the original message for verification (without signature)
+                    let original_message = format!("{}//f//{}//t//{}", message_text, sender_id, timestamp);
+                    
+                    // Verify the signature
+                    match verify_message(rpc_user, rpc_pass, sender_id, signature, &original_message).await {
+                        Ok(true) => {
+                            log::debug!("Message verification successful for tx {}: '{}' from {} at timestamp {}", 
+                                txid, message_text, sender_id, timestamp);
+                            return Some((message_text.to_string(), sender_id.to_string(), timestamp, signature.to_string()));
+                        }
+                        Ok(false) => {
+                            log::warn!("Message verification failed for tx {} - signature invalid. Message silently filtered.", txid);
+                            return None;
+                        }
+                        Err(e) => {
+                            log::error!("Message verification error for tx {}: {:?}. Message silently filtered.", txid, e);
+                            return None;
+                        }
+                    }
+                } else {
+                    log::warn!("Skipping message in tx {} due to invalid timestamp format: '{}'", txid, timestamp_str);
+                    return None;
+                }
+            } else {
+                // Legacy format without signature - silently filter out
+                log::debug!("Skipping legacy unsigned message in tx {} (no signature marker)", txid);
+                return None;
+            }
+        } else {
+            log::trace!("Skipping memo in tx {} (no timestamp marker): {}", txid, memo);
+            return None;
+        }
+    } else {
+        log::trace!("Skipping memo in tx {} (no sender marker): {}", txid, memo);
+        return None;
+    }
+}
 
 // NEW function for New Chat: Get chat history from received memos
 pub async fn get_chat_history(
@@ -63,44 +126,28 @@ pub async fn get_chat_history(
 
     for tx in received_txs {
         if let Some(memostr) = tx.memostr {
-            // Parse new timestamp format: {message_text}//f//{sender_identity}//t//{timestamp}
-            if let Some(sender_marker_pos) = memostr.find("//f//") {
-                let message_text = memostr[..sender_marker_pos].trim();
-                let after_sender_marker = &memostr[sender_marker_pos + 5..]; // 5 = "//f//".len()
+            // Parse and verify message - only verified messages are processed
+            if let Some((message_text, sender_id, timestamp, _signature)) = 
+                parse_and_verify_message(&rpc_user, &rpc_pass, &memostr, &tx.txid).await {
                 
-                if let Some(time_marker_pos) = after_sender_marker.find("//t//") {
-                    let sender_id = after_sender_marker[..time_marker_pos].trim();
-                    let timestamp_str = after_sender_marker[time_marker_pos + 5..].trim(); // 5 = "//t//".len()
-                    
-                    // Only process if this message is from the target identity
-                    if sender_id == target_identity_name {
-                        // Parse timestamp - reject message if invalid (strict parsing)
-                        if let Ok(timestamp) = timestamp_str.parse::<u64>() {
-                            log::debug!("Found history message in tx {}: '{}' from {} at timestamp {}", 
-                                tx.txid, message_text, sender_id, timestamp);
-                            chat_messages.push(ChatMessage {
-                                id: tx.txid,
-                                sender: target_identity_name.clone(),
-                                text: message_text.to_string(),
-                                timestamp: timestamp, // Use parsed timestamp
-                                amount: tx.amount,
-                                confirmations: tx.confirmations,
-                                direction: "received".to_string(),
-                            });
-                        } else {
-                            log::warn!("Skipping history message in tx {} due to invalid timestamp format: '{}'", tx.txid, timestamp_str);
-                        }
-                    }
-                } else {
-                    log::trace!("Skipping memo in tx {} (no timestamp marker): {}", tx.txid, memostr);
+                // Only process if this message is from the target identity
+                if sender_id == target_identity_name {
+                    chat_messages.push(ChatMessage {
+                        id: tx.txid,
+                        sender: target_identity_name.clone(),
+                        text: message_text,
+                        timestamp: timestamp,
+                        amount: tx.amount,
+                        confirmations: tx.confirmations,
+                        direction: "received".to_string(),
+                    });
                 }
-            } else {
-                log::trace!("Skipping memo in tx {} (no sender marker): {}", tx.txid, memostr);
             }
+            // Note: Unverified messages are silently filtered out - no logging needed per zero-trust requirement
         }
     }
 
-    log::info!("Found {} historical messages from {}", chat_messages.len(), target_identity_name);
+    log::info!("Found {} verified messages from {}", chat_messages.len(), target_identity_name);
     // Sort by timestamp ascending (oldest first)
     chat_messages.sort_by_key(|m| m.timestamp);
 
@@ -138,62 +185,48 @@ pub async fn get_new_received_messages(
 
     for tx in received_txs {
         if let Some(memostr) = tx.memostr {
-            // Parse new timestamp format: {message_text}//f//{sender_identity}//t//{timestamp}
-            if let Some(sender_marker_pos) = memostr.find("//f//") {
-                let message_text = memostr[..sender_marker_pos].trim();
-                let after_sender_marker = &memostr[sender_marker_pos + 5..]; // 5 = "//f//".len()
+            // Parse and verify message - only verified messages are processed
+            if let Some((message_text, sender_id, timestamp, _signature)) = 
+                parse_and_verify_message(&rpc_user, &rpc_pass, &memostr, &tx.txid).await {
                 
-                if let Some(time_marker_pos) = after_sender_marker.find("//t//") {
-                    let sender_id = after_sender_marker[..time_marker_pos].trim();
-                    let timestamp_str = after_sender_marker[time_marker_pos + 5..].trim(); // 5 = "//t//".len()
-                    
-                    // Parse timestamp - reject message if invalid (strict parsing)
-                    if let Ok(timestamp) = timestamp_str.parse::<u64>() {
-                        // Validate sender format
-                        let is_valid_sender = sender_id.ends_with('@') && sender_id.len() > 1;
-                        let has_message_content = !message_text.is_empty();
-                        let has_gift_amount = tx.amount > 0.0;
-                        
-                        if is_valid_sender && (has_message_content || has_gift_amount) {
-                            log::debug!(
-                                "Found valid message/gift in tx {}: '{}' from sender '{}', amount: {}, timestamp: {}",
-                                tx.txid,
-                                message_text,
-                                sender_id,
-                                tx.amount,
-                                timestamp
-                            );
-                            chat_messages.push(ChatMessage {
-                                id: tx.txid,
-                                sender: sender_id.to_string(),
-                                text: message_text.to_string(),
-                                timestamp: timestamp, // Use parsed timestamp
-                                amount: tx.amount,
-                                confirmations: tx.confirmations,
-                                direction: "received".to_string(),
-                            });
-                        } else {
-                            log::trace!("Skipping memo in tx {} due to invalid format or no content/gift: {}", tx.txid, memostr);
-                        }
-                    } else {
-                        log::warn!("Skipping message in tx {} due to invalid timestamp format: '{}'", tx.txid, timestamp_str);
-                    }
+                // Validate sender format
+                let is_valid_sender = sender_id.ends_with('@') && sender_id.len() > 1;
+                let has_message_content = !message_text.is_empty();
+                let has_gift_amount = tx.amount > 0.0;
+                
+                if is_valid_sender && (has_message_content || has_gift_amount) {
+                    log::debug!(
+                        "Found valid verified message/gift in tx {}: '{}' from sender '{}', amount: {}, timestamp: {}",
+                        tx.txid,
+                        message_text,
+                        sender_id,
+                        tx.amount,
+                        timestamp
+                    );
+                    chat_messages.push(ChatMessage {
+                        id: tx.txid,
+                        sender: sender_id,
+                        text: message_text,
+                        timestamp: timestamp,
+                        amount: tx.amount,
+                        confirmations: tx.confirmations,
+                        direction: "received".to_string(),
+                    });
                 } else {
-                    log::trace!("Skipping memo in tx {} (no timestamp marker): {}", tx.txid, memostr);
+                    log::trace!("Skipping verified memo in tx {} due to invalid format or no content/gift: {}", tx.txid, memostr);
                 }
-            } else {
-                log::trace!("Skipping memo in tx {} (no sender marker): {}", tx.txid, memostr);
             }
+            // Note: Unverified messages are silently filtered out - no logging needed per zero-trust requirement
         } // Ignore transactions without memos
     }
 
-    log::info!("Parsed {} potential messages from polling.", chat_messages.len());
+    log::info!("Parsed {} verified messages from polling.", chat_messages.len());
     // No sorting needed here, frontend will handle merging and sorting
 
     Ok(chat_messages)
 }
 
-// NEW function for sending a message/gift
+// NEW function for sending a message/gift with mandatory signature
 pub async fn send_private_message(
     rpc_user: String,
     rpc_pass: String,
@@ -221,18 +254,34 @@ pub async fn send_private_message(
         .unwrap()
         .as_secs();
 
-    // 2. Construct the full memo string with timestamp
-    let full_memo = format!("{}//f//{}//t//{}", memo_text, sender_identity, timestamp);
-    log::debug!("Constructed memo string with timestamp: \"{}\" (timestamp: {})", full_memo, timestamp);
+    // 2. Construct the base message for signing (without signature)
+    let base_message = format!("{}//f//{}//t//{}", memo_text, sender_identity, timestamp);
+    log::debug!("Base message for signing: \"{}\" (timestamp: {})", base_message, timestamp);
 
-    // 3. Convert the memo string to its hexadecimal representation
+    // 3. MANDATORY SIGNING: Sign the base message
+    let signature_response = match sign_message(&rpc_user, &rpc_pass, &sender_identity, &base_message).await {
+        Ok(sig) => {
+            log::info!("Message signed successfully. Hash: {}", sig.hash);
+            sig
+        }
+        Err(e) => {
+            log::error!("CRITICAL: Message signing failed: {:?}. Message will NOT be sent.", e);
+            return Err(VerusRpcError::SigningFailed);
+        }
+    };
+
+    // 4. Construct the full memo string with signature
+    let full_memo = format!("{}//f//{}//t//{}//{}", memo_text, sender_identity, timestamp, signature_response.signature);
+    log::debug!("Constructed signed memo string: \"{}\"", full_memo);
+
+    // 5. Convert the memo string to its hexadecimal representation
     // Ensure the memo is not too long - z_sendmany memo limit is typically 512 bytes.
     // Hex encoding doubles the length, so the original memo should be < 256 bytes.
     // The frontend already limits input to 412 characters, which is safe.
     let memo_hex = hex::encode(full_memo.as_bytes());
     log::debug!("Hex encoded memo: {}", memo_hex);
 
-    // 4. Construct the parameters for the z_sendmany RPC call
+    // 6. Construct the parameters for the z_sendmany RPC call
     let amounts_param = json!([
         {
             "address": recipient_z_address,
@@ -248,15 +297,15 @@ pub async fn send_private_message(
         // fee (optional, default 0.0001) - Daemon handles this
     ];
 
-    // 5. Make the RPC call
-    log::info!("Executing z_sendmany...");
+    // 7. Make the RPC call
+    log::info!("Executing z_sendmany with signed message...");
     match make_rpc_call::<String>(&rpc_user, &rpc_pass, "z_sendmany", params).await {
         Ok(txid) => {
-            log::info!("z_sendmany successful, txid: {}", txid);
+            log::info!("z_sendmany successful with signed message, txid: {}", txid);
             Ok(txid)
         }
         Err(e) => {
-            log::error!("z_sendmany failed: {:?}", e);
+            log::error!("z_sendmany failed even with valid signature: {:?}", e);
             Err(e)
         }
     }

@@ -13,6 +13,7 @@
 // - Simplified message ordering to chronological (oldest first) for cleaner data flow
 // - Added copy message functionality with hover copy icon and visual feedback
 // - Improved text contrast throughout the interface
+// - Fixed UX: Removed cursor-pointer from message containers to prevent false clickable affordance
 
   import { createEventDispatcher, tick } from 'svelte';
   import MessageInput from './MessageInput.svelte';
@@ -147,7 +148,7 @@
                   <!-- Messages in group -->
                   {#each group.messages as message (message.id)}
                     <div 
-                      class="message-item mb-1 hover:bg-dark-bg-secondary hover:bg-opacity-30 px-2 py-0.5 -mx-2 rounded transition-colors cursor-pointer relative"
+                      class="message-item mb-1 px-2 py-0.5 -mx-2 rounded transition-colors relative"
                       on:mouseenter={() => handleMessageHover(message.id)}
                       on:mouseleave={() => handleMessageHover(null)}
                     >

@@ -14,6 +14,8 @@
 // - Added `pub mod message_rpc;` to declare the new module for message RPC logic.
 // - Added `pub mod wallet_rpc;` to declare the new module for wallet RPC logic.
 // - Corrected use statements and function call paths to reflect new module structure.
+// - SECURITY: Integrated cryptographic message signing and verification system
+// - Zero-trust messaging: Only verified messages are displayed, unverified messages are silently filtered
 
 mod credentials; // Added credentials module
 mod settings; // Added settings module
@@ -127,7 +129,7 @@ async fn check_identity_eligibility(
         .map_err(CommandError::from) // Uses the updated From implementation
 }
 
-// NEW Command: Get Chat History
+// NEW Command: Get Chat History (with automatic signature verification)
 #[tauri::command]
 async fn get_chat_history(
     app: tauri::AppHandle,
@@ -141,7 +143,7 @@ async fn get_chat_history(
         .map_err(CommandError::from)
 }
 
-// NEW Command: Get New Received Messages (Polling)
+// NEW Command: Get New Received Messages (Polling) (with automatic signature verification)
 #[tauri::command]
 async fn get_new_received_messages(
     app: tauri::AppHandle,
@@ -154,7 +156,7 @@ async fn get_new_received_messages(
         .map_err(CommandError::from)
 }
 
-// NEW Command: Send Private Message/Gift
+// NEW Command: Send Private Message/Gift (with mandatory signature)
 #[tauri::command]
 async fn send_private_message(
     app: tauri::AppHandle,

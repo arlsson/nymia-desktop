@@ -2,6 +2,8 @@
 // Description: Handles generic RPC communication logic.
 // Changes:
 // - Moved RpcResponse, RpcError, VerusRpcError, and make_rpc_call from verus_rpc.rs.
+// - Added SignatureResponse struct for signmessage API response
+// - Added signature verification specific error handling
 
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
@@ -21,6 +23,13 @@ pub struct RpcError {
     pub message: String,
 }
 
+// Signature response structure for signmessage API
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct SignatureResponse {
+    pub hash: String,
+    pub signature: String,
+}
+
 // Custom error type for our function
 #[derive(Debug, thiserror::Error, Serialize, Clone)]
 pub enum VerusRpcError {
@@ -38,6 +47,10 @@ pub enum VerusRpcError {
     NotFoundOrIneligible, // Keep this here as it's a general RPC outcome
     #[error("Invalid VerusID format")]
     InvalidFormat, // Keep this here as it's a general RPC outcome
+    #[error("Message signing failed")]
+    SigningFailed,
+    #[error("Message verification failed")]
+    VerificationFailed,
 }
 
 // Convert reqwest::Error to String for serialization
@@ -108,6 +121,62 @@ pub async fn make_rpc_call<T: for<'de> Deserialize<'de>>(
         Err(e) => {
            let verus_error: VerusRpcError = e.into();
            Err(verus_error)
+        }
+    }
+}
+
+// Sign message using Verus signmessage RPC
+pub async fn sign_message(
+    rpc_user: &str,
+    rpc_pass: &str,
+    verusid: &str,
+    message: &str,
+) -> Result<SignatureResponse, VerusRpcError> {
+    log::info!("Signing message with VerusID: {}", verusid);
+    log::debug!("Message to sign: '{}'", message);
+
+    let params = vec![json!(verusid), json!(message)];
+    
+    match make_rpc_call::<SignatureResponse>(rpc_user, rpc_pass, "signmessage", params).await {
+        Ok(signature_response) => {
+            log::info!("Message signed successfully. Hash: {}", signature_response.hash);
+            Ok(signature_response)
+        }
+        Err(e) => {
+            log::error!("Failed to sign message: {:?}", e);
+            Err(VerusRpcError::SigningFailed)
+        }
+    }
+}
+
+// Verify message using Verus verifymessage RPC
+pub async fn verify_message(
+    rpc_user: &str,
+    rpc_pass: &str,
+    verusid: &str,
+    signature: &str,
+    message: &str,
+) -> Result<bool, VerusRpcError> {
+    log::debug!("Verifying message signature for VerusID: {}", verusid);
+    log::debug!("Original message: '{}'", message);
+    log::debug!("Signature: {}", signature);
+
+    let params = vec![json!(verusid), json!(signature), json!(message)];
+    
+    match make_rpc_call::<bool>(rpc_user, rpc_pass, "verifymessage", params).await {
+        Ok(is_valid) => {
+            if is_valid {
+                log::debug!("Message signature verified successfully for {}", verusid);
+            } else {
+                log::warn!("Message signature verification failed for {}", verusid);
+            }
+            Ok(is_valid)
+        }
+        Err(e) => {
+            log::error!("Failed to verify message signature: {:?}", e);
+            // Return false for verification failures rather than propagating the error
+            // This ensures failed verifications are treated as invalid signatures
+            Ok(false)
         }
     }
 } 
