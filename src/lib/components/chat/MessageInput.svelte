@@ -158,16 +158,16 @@
 
 </script>
 
-<div class="p-3 pt-2 bg-dark-bg-secondary">
+    <div class="p-4 bg-dark-bg-secondary">
     <!-- Main message input area -->
-    <div class="relative mb-1.5">
+    <div class="relative mb-2">
         <textarea
             bind:value={messageText}
             on:input={handleInput}
             on:keydown={handleKeyDown}
             rows="2"
             placeholder="Type your message... (412 characters max)"
-            class={`w-full py-2 px-3 border rounded resize-none focus:outline-none focus:ring-1 text-sm h-20 font-mono bg-dark-bg-tertiary text-dark-text-primary placeholder-dark-text-disabled ${isOverLimit ? 'border-red-700 focus:ring-red-500 focus:border-red-600' : 'border-dark-border-secondary focus:ring-brand-green focus:border-brand-green'}`}
+            class={`w-full py-3 px-4 border rounded-md resize-none focus:outline-none focus:ring-2 text-sm h-20 font-mono bg-dark-bg-primary text-dark-text-primary placeholder-white-text-disabled ${isOverLimit ? 'border-red-600 focus:ring-red-500 focus:border-red-500' : 'border-dark-border-primary focus:ring-brand-green focus:border-brand-green'}`}
             style="font-family: 'IBM Plex Mono', monospace;"
             disabled={showConfirmation}
         ></textarea>
@@ -240,7 +240,7 @@
     </div>
     
     <!-- Information text -->
-    <div class="mt-2 text-xs text-left text-dark-text-secondary">
+    <div class="mt-2 text-xs text-left text-white/60">
         Messages and gifts cost 0.0001 VRSC, are end-to-end encrypted and invisible to outsiders.
     </div>
     

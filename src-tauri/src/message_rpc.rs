@@ -6,7 +6,7 @@
 // - BREAKING: Implemented timestamp-based messaging system with new memo format: {message_text}//f//{sender_identity}//t//{unix_timestamp}
 // - Updated send_private_message to include UTC timestamps when sending messages.
 // - Updated message parsing logic with strict validation - messages without valid timestamps are rejected.
-// - Replaced confirmation-based sorting with timestamp-based sorting for accurate chronological ordering.
+// - Implemented chronological timestamp-based sorting (oldest first) for consistent message ordering.
 
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
@@ -101,8 +101,8 @@ pub async fn get_chat_history(
     }
 
     log::info!("Found {} historical messages from {}", chat_messages.len(), target_identity_name);
-    // Sort by timestamp descending (newest first)
-    chat_messages.sort_by_key(|m| std::cmp::Reverse(m.timestamp));
+    // Sort by timestamp ascending (oldest first)
+    chat_messages.sort_by_key(|m| m.timestamp);
 
     Ok(chat_messages)
 }

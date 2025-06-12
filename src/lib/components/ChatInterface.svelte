@@ -12,14 +12,13 @@
 // - Imported global Conversation type from types.ts.
 // - Stored recipient_private_address in conversations array.
 // - Implemented handleSendMessage to perform optimistic UI update and call backend.
-// - Corrected message sorting to be descending by timestamp.
 // - Added chat persistence logic (prompt, load/save settings, convos, messages).
 // - Added PersistencePromptModal.
 // - Added SettingsView integration.
 // - BREAKING: Implemented timestamp-based messaging system replacing block-height sorting.
-// - Simplified message sorting to use Unix timestamps only (no more complex block calculations).
+// - Simplified message sorting to chronological order (oldest first) for cleaner data flow.
 // - Updated optimistic message creation to use Unix seconds timestamps.
-// - Removed sentAtBlockHeight dependencies and complex sorting logic.
+// - Removed complex sorting and display reversal logic.
 
   import { createEventDispatcher, onMount, onDestroy } from 'svelte';
   import { invoke } from '@tauri-apps/api/core';
@@ -320,15 +319,15 @@
 
   // Simplified comparison function for timestamp-based sorting
   function compareMessages(a: ChatMessage, b: ChatMessage): number {
-    // Primary sort: Timestamp descending (newest first)
-    const timestampDiff = b.timestamp - a.timestamp;
+    // Primary sort: Timestamp ascending (oldest first)
+    const timestampDiff = a.timestamp - b.timestamp;
     if (timestampDiff !== 0) {
         return timestampDiff;
     }
     
     // Secondary sort (tie-breaker): Transaction ID lexicographical
     // This handles the rare case of identical timestamps
-    return b.id.localeCompare(a.id);
+    return a.id.localeCompare(b.id);
   }
 
   // --- Event Handlers ---
@@ -641,15 +640,15 @@
   // --- Simple Timestamp-Based Sorting Logic ---
   function sortMessages(messageList: ChatMessage[]): ChatMessage[] {
       return messageList.sort((a, b) => {
-          // Primary sort: Timestamp descending (newest first)
-          const timestampDiff = b.timestamp - a.timestamp;
+          // Primary sort: Timestamp ascending (oldest first)
+          const timestampDiff = a.timestamp - b.timestamp;
           if (timestampDiff !== 0) {
               return timestampDiff;
           }
           
           // Secondary sort (tie-breaker): Transaction ID lexicographical
           // This handles the rare case of identical timestamps
-          return b.id.localeCompare(a.id);
+          return a.id.localeCompare(b.id);
       });
   }
 
