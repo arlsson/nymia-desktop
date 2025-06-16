@@ -14,6 +14,7 @@
 // - Added copy message functionality with hover copy icon and visual feedback
 // - Improved text contrast throughout the interface
 // - Fixed UX: Removed cursor-pointer from message containers to prevent false clickable affordance
+// - Added verusIdName prop to pass current user's identity name to MessageInput for dynamic character limits
 
   import { createEventDispatcher, tick } from 'svelte';
   import MessageInput from './MessageInput.svelte';
@@ -28,6 +29,7 @@
   export let messages: ChatMessage[] = [];
   export let privateBalance: PrivateBalance = null;
   export let isTransactionPending: boolean = false;
+  export let verusIdName: string; // Current user's VerusID name for dynamic message limit calculation
 
   // --- State ---
   let chatContainer: HTMLElement;
@@ -240,6 +242,7 @@
       <MessageInput 
         {privateBalance}  
         {isTransactionPending}
+        {verusIdName}
         on:sendMessage={handleSendMessage} 
       />
     </div>

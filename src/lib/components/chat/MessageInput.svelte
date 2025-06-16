@@ -1,30 +1,31 @@
 <script lang="ts">
 // Component: src/lib/components/chat/MessageInput.svelte
-// Description: Input area for composing and sending chat messages (Dark Theme).
+// Description: Compact Discord-like input area for composing and sending chat messages (Dark Theme).
 // Changes:
-// - Renamed "Send VRSC" to "Gift VRSC" with rainbow gradient style
-// - Added confirmation dialog when sending messages/gifts
-// - Moved informational text to the bottom of the component
-// - Better integrated message and gift functionality
-// - Added animation effects to gift button and input
-// - Ensured confirmation dialog appears on send click.
-// - FIX: Corrected logic to show confirmation when only gift amount is entered.
-// - STYLE: Matched confirmation dialog buttons to NewChatModal styles.
-// - FEAT: Added privateBalance prop and validation to prevent sending more than available.
-// - REDESIGN: Enhanced gift button contrast and made amount input inline.
-// - DARK THEME: Updated all colors to use dark theme color scheme from tailwind.config.js.
+// - REDESIGN: Complete layout overhaul to Discord-like compact design
+// - Single line input that expands vertically when needed
+// - Unified border containing message text, character counter, gift icon, and send button
+// - Gift amount input appears as popup overlay above gift icon
+// - Subtle character counter styling inside input
+// - Gift icon with pulse/glow and color shift animations
+// - Error messages shown inside gift overlay
+// - Maintained all existing functionality with new compact layout
+// - DYNAMIC LIMITS: Implemented dynamic character limits based on current user's VerusID name length
+// - Replaced hardcoded 412 character limit with calculation considering memo format overhead
+// - Added verusIdName prop and integrated with messageLimit utility function
 
   import { createEventDispatcher } from 'svelte';
   import { Send, DollarSign, Gift, X, Check, AlertTriangle } from 'lucide-svelte';
   import type { PrivateBalance } from '$lib/types'; // Import PrivateBalance
+  import { calculateMaxMessageLength } from '$lib/utils/messageLimit';
 
   // --- Constants ---
-  const MAX_MESSAGE_LENGTH = 412; // Maximum message length in bytes/characters
   const TX_FEE = 0.0001;
 
   // --- Props ---
   export let privateBalance: PrivateBalance = null; // Add privateBalance prop
   export let isTransactionPending: boolean = false; // Add pending state prop
+  export let verusIdName: string; // Current user's VerusID name for dynamic message limit calculation
 
   // --- State ---
   let messageText: string = '';
@@ -32,6 +33,8 @@
   let amountToSend: number | null = null;
   let showConfirmation: boolean = false;
   let insufficientBalanceError: boolean = false;
+  let textareaElement: HTMLTextAreaElement;
+  let giftInputElement: HTMLInputElement;
 
   // --- Events ---
   const dispatch = createEventDispatcher<{ 
@@ -42,11 +45,11 @@
     const trimmedMessage = messageText.trim();
     
     // FIX: Corrected condition to trigger confirmation if message OR gift amount is valid
-    const isMessageValid = trimmedMessage.length > 0 && trimmedMessage.length <= MAX_MESSAGE_LENGTH;
+    const isMessageValid = trimmedMessage.length > 0 && trimmedMessage.length <= maxMessageLength;
     const isAmountValid = amountToSend !== null && amountToSend > 0;
 
     if (!isMessageValid && !isAmountValid) return; // Neither message nor valid gift amount
-    if (trimmedMessage.length > MAX_MESSAGE_LENGTH) return; // Message too long
+    if (trimmedMessage.length > maxMessageLength) return; // Message too long
 
     console.log("handleSubmit called, setting showConfirmation to true"); // Debug log
     // Show confirmation dialog instead of immediately sending
@@ -69,6 +72,7 @@
     amountToSend = null;
     showFundsInput = false;
     showConfirmation = false;
+    resetTextareaHeight();
   }
 
   function cancelSend() {
@@ -77,7 +81,7 @@
 
   function handleKeyDown(event: KeyboardEvent) {
     // Send message on Enter key press (unless Shift is held for newline)
-    if (event.key === 'Enter' && !event.shiftKey && !showConfirmation) { // Add !showConfirmation here
+    if (event.key === 'Enter' && !event.shiftKey && !showConfirmation && !showFundsInput) { // Don't send when gift overlay is open
       event.preventDefault(); // Prevent default newline behavior
       handleSubmit();
     }
@@ -86,13 +90,67 @@
     if (event.key === 'Escape' && showConfirmation) {
       cancelSend();
     }
+
+    // Close gift input on Escape
+    if (event.key === 'Escape' && showFundsInput) {
+      toggleFundsInput();
+    }
+  }
+
+  function handleGiftInputKeyDown(event: KeyboardEvent) {
+    // Close gift overlay on Enter
+    if (event.key === 'Enter' && !insufficientBalanceError) {
+      event.preventDefault();
+      confirmGiftAmount();
+    }
+    
+    // Close gift input on Escape
+    if (event.key === 'Escape') {
+      event.preventDefault();
+      toggleFundsInput();
+    }
+    
+    // Stop event propagation to prevent triggering main input handlers
+    event.stopPropagation();
   }
 
   function toggleFundsInput() {
       showFundsInput = !showFundsInput;
       if (!showFundsInput) {
-          amountToSend = null; // Clear amount if hiding the input
+          // Don't clear amount when hiding - keep it for display
+      } else {
+        // Focus the gift input when overlay opens
+        setTimeout(() => {
+          if (giftInputElement) {
+            giftInputElement.focus();
+          }
+        }, 50);
       }
+  }
+
+  function confirmGiftAmount() {
+    if (amountToSend && amountToSend > 0 && !insufficientBalanceError) {
+      showFundsInput = false;
+      // Amount stays in amountToSend for display next to icon
+    }
+  }
+
+  function clearGiftAmount() {
+    amountToSend = null;
+    showFundsInput = false;
+  }
+
+  function resetTextareaHeight() {
+    if (textareaElement) {
+      textareaElement.style.height = 'auto';
+    }
+  }
+
+  function adjustTextareaHeight() {
+    if (textareaElement) {
+      textareaElement.style.height = 'auto';
+      textareaElement.style.height = Math.min(textareaElement.scrollHeight, 120) + 'px';
+    }
   }
 
   // Check if amount exceeds balance
@@ -102,22 +160,23 @@
     insufficientBalanceError = false;
   }
 
-  // Calculate message length and status
+  // Calculate dynamic message limit and status
+  $: maxMessageLength = calculateMaxMessageLength(verusIdName);
   $: messageLength = messageText.length;
-  $: isOverLimit = messageLength > MAX_MESSAGE_LENGTH;
-  $: remainingChars = MAX_MESSAGE_LENGTH - messageLength;
+  $: isOverLimit = messageLength > maxMessageLength;
+  $: remainingChars = maxMessageLength - messageLength;
   $: charCountClass = isOverLimit 
       ? 'text-red-400 font-medium' 
       : remainingChars < 20 
         ? 'text-orange-400' 
-        : 'text-dark-text-disabled';
+        : 'text-white/45';
   $: summaryText = amountToSend && amountToSend > 0 
       ? `Send ${messageText.trim() ? 'a message with ' : ''}${amountToSend} VRSC gift` 
       : 'Send message';
       
   // FIX: Corrected disabled logic: button enabled if (message is valid OR amount is valid) AND confirmation is not shown AND balance is sufficient AND NO PENDING TX
   $: sendButtonDisabled = 
-    (messageText.trim().length > MAX_MESSAGE_LENGTH) || // Message too long
+    (messageText.trim().length > maxMessageLength) || // Message too long
     (messageText.trim().length === 0 && (amountToSend === null || amountToSend <= 0)) || // No message and no gift
     (amountToSend !== null && privateBalance !== null && amountToSend > (privateBalance - TX_FEE)) || // Insufficient balance
     isTransactionPending || // Transaction is pending confirmation
@@ -154,93 +213,139 @@
       } else {
           messageText = originalValue; // No change, just update bound variable normally
       }
+      
+      // Adjust textarea height after input
+      adjustTextareaHeight();
   }
 
 </script>
 
-    <div class="p-4 bg-dark-bg-secondary">
-    <!-- Main message input area -->
+<div class="p-4 bg-dark-bg-secondary">
+    <!-- Compact unified input container -->
     <div class="relative mb-2">
-        <textarea
-            bind:value={messageText}
-            on:input={handleInput}
-            on:keydown={handleKeyDown}
-            rows="2"
-            placeholder="Type your message... (412 characters max)"
-            class={`w-full py-3 px-4 border rounded-md resize-none focus:outline-none focus:ring-2 text-sm h-20 font-mono bg-dark-bg-primary text-dark-text-primary placeholder-white-text-disabled ${isOverLimit ? 'border-red-600 focus:ring-red-500 focus:border-red-500' : 'border-dark-border-primary focus:ring-brand-green focus:border-brand-green'}`}
-            style="font-family: 'IBM Plex Mono', monospace;"
-            disabled={showConfirmation}
-        ></textarea>
-        
-        <!-- Character Counter -->
-        <div class={`absolute bottom-2 right-3 text-xs ${charCountClass}`}>
-            {messageLength}/{MAX_MESSAGE_LENGTH}
-        </div>
-    </div>
-    
-    <!-- Bottom row with controls (height-stable redesign) -->
-    <div class="flex items-center justify-between space-x-2">
-        <!-- Left Side: Gift button and amount input with fixed height -->
-        <div class="flex-grow flex items-center h-[32px]">
-            <!-- Gift Button with Improved Purple Gradient Styling -->
-            <button 
-                on:click={toggleFundsInput}
+        <!-- Main input container with unified border -->
+        <div class={`relative flex items-end border rounded-md bg-dark-bg-primary ${isOverLimit ? 'border-red-600' : 'border-dark-border-primary focus-within:ring-2 focus-within:ring-brand-green focus-within:border-brand-green'} transition-colors`}>
+            <!-- Message textarea -->
+            <textarea
+                bind:this={textareaElement}
+                bind:value={messageText}
+                on:input={handleInput}
+                on:keydown={handleKeyDown}
+                rows="1"
+                placeholder="Type your message..."
+                class="flex-1 py-3 px-4 bg-transparent text-dark-text-primary placeholder:text-white/45 resize-none focus:outline-none text-sm min-h-[44px] max-h-[120px]"
+                style="font-family: 'IBM Plex Mono', monospace; line-height: 1.4;"
                 disabled={showConfirmation}
-                class="gift-button relative overflow-hidden flex items-center rounded-md py-1.5 px-3 text-xs font-medium transition-all duration-150 hover:shadow-md border border-transparent shrink-0 z-10"
-                class:gift-button-active={showFundsInput}
-                title="Add a gift of VRSC to your message"
-            >
-                <!-- Purple gradient background from ConversationView.svelte -->
-                <div class="absolute inset-0 bg-gradient-to-br from-indigo-500 via-purple-500 to-pink-500 gift-gradient-shift opacity-95"></div>
-                <div class="relative z-10 flex items-center text-white">
-                    <Gift size={14} class="mr-1.5" />
-                    Gift VRSC
-                </div>
-            </button>
+            ></textarea>
             
-            <!-- Amount Input Container (always present for layout stability) -->
-            <div class="flex items-center ml-2 flex-grow {showFundsInput ? 'opacity-100' : 'opacity-0 pointer-events-none'} transition-opacity duration-200">
-                <div class="relative flex-grow max-w-[140px]">
-                    <input 
-                        type="number" 
-                        step="any" 
-                        min="0" 
-                        inputmode="decimal"
-                        bind:value={amountToSend} 
-                        placeholder="0.0000" 
-                        class={`w-full py-1.5 px-2 border rounded text-sm focus:outline-none focus:ring-1 pr-12 bg-dark-bg-tertiary text-dark-text-primary placeholder-dark-text-disabled ${insufficientBalanceError ? 'border-red-600 focus:ring-red-500 focus:border-red-500' : 'border-dark-border-secondary focus:ring-brand-green focus:border-brand-green'}`}
-                        disabled={!showFundsInput || showConfirmation}
-                    />
-                    <div class="absolute right-2 top-1/2 -translate-y-1/2 text-sm text-dark-text-secondary font-medium">
-                        VRSC
-                    </div>
+            <!-- Right side controls container -->
+            <div class="flex items-center space-x-2 px-3 py-2">
+                <!-- Character counter -->
+                <div class={`text-xs ${charCountClass} select-none`}>
+                    {messageLength}/{maxMessageLength}
                 </div>
                 
-                <!-- Error message inline -->
-                {#if insufficientBalanceError}
-                <div class="text-xs text-red-400 flex items-center truncate ml-2">
-                    <AlertTriangle size={12} class="mr-1 shrink-0"/>
-                    <span class="truncate">Max: {(privateBalance !== null ? (privateBalance - TX_FEE) : 0).toFixed(4)}</span>
+                <!-- Gift button with animation -->
+                <div class="relative">
+                    <button 
+                        on:click={toggleFundsInput}
+                        disabled={showConfirmation}
+                        class="gift-button p-1.5 rounded-md transition-all duration-200 hover:scale-110 disabled:opacity-50 disabled:cursor-not-allowed"
+                        class:gift-button-active={showFundsInput}
+                        title="Add a gift of VRSC to your message"
+                    >
+                        <Gift size={26} class="gift-icon" />
+                    </button>
+                    
+                    <!-- Gift amount overlay -->
+                    {#if showFundsInput}
+                        <div class="absolute bottom-full right-0 mb-2 bg-dark-bg-tertiary border border-dark-border-secondary rounded-lg shadow-lg p-3 min-w-[200px] z-20">
+                            <!-- Arrow pointing down to gift icon -->
+                            <div class="absolute top-full right-3 w-0 h-0 border-l-4 border-r-4 border-t-4 border-l-transparent border-r-transparent border-t-dark-border-secondary"></div>
+                            
+                            <div class="text-xs font-medium text-dark-text-primary mb-2">Gift Amount</div>
+                            
+                            <div class="relative mb-3">
+                                <input 
+                                    type="number" 
+                                    step="any" 
+                                    min="0" 
+                                    inputmode="decimal"
+                                    bind:value={amountToSend} 
+                                    placeholder="0.0000" 
+                                    class={`w-full py-2 px-3 border rounded text-sm focus:outline-none focus:ring-1 pr-12 bg-dark-bg-primary text-dark-text-primary placeholder-dark-text-disabled ${insufficientBalanceError ? 'border-red-600 focus:ring-red-500 focus:border-red-500' : 'border-dark-border-secondary focus:ring-brand-green focus:border-brand-green'}`}
+                                    disabled={showConfirmation}
+                                    bind:this={giftInputElement}
+                                    on:keydown={handleGiftInputKeyDown}
+                                />
+                                <div class="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-dark-text-secondary font-medium">
+                                    VRSC
+                                </div>
+                            </div>
+                            
+                            <!-- Error message inside overlay -->
+                            {#if insufficientBalanceError}
+                                <div class="mb-3 text-xs text-red-400 flex items-start">
+                                    <AlertTriangle size={12} class="mr-1 mt-0.5 shrink-0"/>
+                                    <span>Insufficient balance. Max: {(privateBalance !== null ? (privateBalance - TX_FEE) : 0).toFixed(4)} VRSC</span>
+                                </div>
+                            {/if}
+                            
+                            <div class="mb-3 text-xs text-dark-text-disabled">
+                                Fee: 0.0001 VRSC
+                            </div>
+                            
+                            <!-- Confirm/Cancel buttons -->
+                            <div class="flex justify-end space-x-2">
+                                <button 
+                                    on:click={toggleFundsInput}
+                                    class="px-2 py-1 text-xs text-dark-text-secondary hover:text-dark-text-primary transition-colors"
+                                >
+                                    Cancel
+                                </button>
+                                <button 
+                                    on:click={confirmGiftAmount}
+                                    disabled={!amountToSend || amountToSend <= 0 || insufficientBalanceError}
+                                    class="px-3 py-1 bg-purple-500 hover:bg-purple-600 disabled:bg-gray-600 disabled:opacity-50 text-white text-xs rounded transition-colors font-medium"
+                                >
+                                    Confirm
+                                </button>
+                            </div>
+                        </div>
+                    {/if}
                 </div>
+                
+                <!-- Show confirmed gift amount badge in normal flow -->
+                {#if amountToSend && amountToSend > 0 && !showFundsInput}
+                    <div class="bg-purple-500 text-white text-xs px-1.5 py-0.5 rounded-full font-medium flex items-center shadow-lg whitespace-nowrap">
+                        <span>{amountToSend}</span>
+                        <button 
+                            on:click={clearGiftAmount}
+                            class="ml-1 hover:bg-purple-600 rounded-full p-0.5 transition-colors"
+                            title="Remove gift"
+                        >
+                            <X size={10} />
+                        </button>
+                    </div>
                 {/if}
+                
+                <!-- Send button -->
+                <button
+                    type="button" 
+                    on:click={handleSubmit}
+                    disabled={sendButtonDisabled}
+                    title={sendButtonTitle}
+                    class="p-1.5 rounded text-white hover:bg-brand-green-hover focus:outline-none focus:ring-1 focus:ring-offset-1 focus:ring-offset-dark-bg-secondary focus:ring-brand-green disabled:opacity-50 disabled:cursor-not-allowed transition-colors duration-150 shrink-0"
+                    style="background-color: {sendButtonDisabled ? '#9fcfb8' : '#419A6A'};"
+                >
+                    <Send size={16} />
+                </button>
             </div>
         </div>
-        
-        <!-- Right Side: Send Button -->
-        <button
-            type="button" 
-            on:click={handleSubmit}
-            disabled={sendButtonDisabled}
-            title={sendButtonTitle}
-            class="p-1.5 rounded text-white hover:bg-brand-green-hover focus:outline-none focus:ring-1 focus:ring-offset-1 focus:ring-offset-dark-bg-secondary focus:ring-brand-green disabled:opacity-50 disabled:cursor-not-allowed transition-colors duration-150 shrink-0"
-            style="background-color: {sendButtonDisabled ? '#9fcfb8' : '#419A6A'};"
-        >
-            <Send size={16} />
-        </button>
     </div>
     
     <!-- Information text -->
-    <div class="mt-2 text-xs text-left text-white/60">
+    <div class="text-xs text-left text-white/60">
         Messages and gifts cost 0.0001 VRSC, are end-to-end encrypted and invisible to outsiders.
     </div>
     
@@ -308,20 +413,78 @@
 </div>
 
 <style>
-    /* Gift button animation */
+    /* Simple gift button styling that actually works */
     .gift-button {
-        transition: all 0.2s ease;
+        transition: all 0.3s ease;
+        position: relative;
     }
     
+    /* Target Lucide SVG with correct stroke properties */
+    :global(.gift-button .gift-icon) {
+        color: #8b5cf6;
+        stroke: currentColor;
+        fill: none;
+        animation: gift-pulse 2s ease-in-out infinite;
+        filter: drop-shadow(0 0 4px rgba(139, 92, 246, 0.6));
+        transform-origin: center;
+        transition: none;
+    }
+    
+    /* Hover state for button */
+    .gift-button:hover {
+        transform: scale(1.1);
+        background-color: rgba(139, 92, 246, 0.1);
+    }
+    
+    /* Hover animation for icon - just enhance the glow, no spin */
+    :global(.gift-button:hover .gift-icon) {
+        color: #7c3aed;
+        filter: drop-shadow(0 0 8px rgba(139, 92, 246, 1));
+    }
+    
+    /* Active state when overlay is open */
     .gift-button-active {
+        background-color: rgba(139, 92, 246, 0.2);
         transform: scale(1.05);
-        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
     }
     
-    /* Enhanced gradient animation */
+    :global(.gift-button-active .gift-icon) {
+        animation: gift-bounce 1s ease-in-out infinite;
+        color: #7c3aed;
+        filter: drop-shadow(0 0 12px rgba(139, 92, 246, 1));
+    }
+    
+    /* Simple, effective animations */
+    @keyframes gift-pulse {
+        0%, 100% {
+            transform: scale(1);
+            filter: drop-shadow(0 0 4px rgba(139, 92, 246, 0.6));
+        }
+        50% {
+            transform: scale(1.15);
+            filter: drop-shadow(0 0 12px rgba(139, 92, 246, 1));
+        }
+    }
+    
+    @keyframes gift-bounce {
+        0%, 100% {
+            transform: scale(1);
+        }
+        25% {
+            transform: scale(1.2) rotate(5deg);
+        }
+        50% {
+            transform: scale(1.3);
+        }
+        75% {
+            transform: scale(1.2) rotate(-5deg);
+        }
+    }
+    
+    /* Enhanced gradient animation for confirmation */
     .gift-gradient-shift {
         background-size: 200% 200%;
-        animation: gradient-shift 3s linear infinite; /* Faster animation (3s) for more visible shift */
+        animation: gradient-shift 3s linear infinite;
     }
     
     @keyframes gradient-shift {
@@ -346,5 +509,23 @@
     /* Firefox */
     input[type="number"] {
         -moz-appearance: textfield;
+    }
+    
+    /* Textarea scrollbar styling */
+    textarea::-webkit-scrollbar {
+        width: 4px;
+    }
+    
+    textarea::-webkit-scrollbar-track {
+        background: transparent;
+    }
+    
+    textarea::-webkit-scrollbar-thumb {
+        background: rgba(255, 255, 255, 0.2);
+        border-radius: 2px;
+    }
+    
+    textarea::-webkit-scrollbar-thumb:hover {
+        background: rgba(255, 255, 255, 0.3);
     }
 </style> 

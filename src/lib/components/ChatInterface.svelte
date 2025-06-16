@@ -694,6 +694,7 @@
               messages={selectedMessages}
               privateBalance={privateBalance}
               isTransactionPending={isTransactionPending}
+              verusIdName={loggedInIdentity?.formatted_name || ''}
               on:sendMessage={handleSendMessage}
           />
       {/if}
