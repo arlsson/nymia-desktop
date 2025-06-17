@@ -19,15 +19,19 @@
 // - Simplified message sorting to chronological order (oldest first) for cleaner data flow.
 // - Updated optimistic message creation to use Unix seconds timestamps.
 // - Removed complex sorting and display reversal logic.
+// - LAYOUT REDESIGN: Removed TopBar and consolidated everything into left sidebar.
+// - Added UserInfoSection component at bottom of sidebar with user info, balance, and controls.
+// - Restructured layout to have ConversationsList and UserInfoSection in left sidebar.
+// - Right panel now takes full screen height with ConversationView/SettingsView.
 
   import { createEventDispatcher, onMount, onDestroy } from 'svelte';
   import { invoke } from '@tauri-apps/api/core';
-  import TopBar from './chat/TopBar.svelte';
   import ConversationsList from './chat/ConversationsList.svelte';
   import ConversationView from './chat/ConversationView.svelte';
   import NewChatModal from './chat/NewChatModal.svelte';
   import PersistencePromptModal from './chat/PersistencePromptModal.svelte'; // Import persistence modal
   import SettingsView from './settings/SettingsView.svelte'; // Import settings view
+  import UserInfoSection from './chat/UserInfoSection.svelte'; // Import user info section
   import type { FormattedIdentity, PrivateBalance, ChatMessage, Conversation } from '$lib/types';
 
   // --- Props ---
@@ -654,22 +658,11 @@
 
 </script>
 
-<div class="flex flex-col h-screen font-sans text-sm">
-  <!-- Top Bar -->
-  <TopBar 
-    verusIdName={loggedInIdentity?.formatted_name || 'Unknown User'} 
-    privateBalance={privateBalance}
-    blockHeight={blockHeight}
-    isTransactionPending={isTransactionPending}
-    on:logout={handleLogout}
-    on:settings={handleSettings}
-  />
-
-  <!-- Main Content Area (Sidebar + Chat View / Settings View) -->
-  <div class="flex flex-grow overflow-hidden border-t border-dark-border-primary">
-    
-    <!-- Left Sidebar -->
-    <div class="w-[25%] max-w-[300px] min-w-[200px] flex-shrink-0 bg-dark-bg-secondary border-r border-dark-border-primary flex flex-col shadow-sm">
+<div class="flex h-screen font-sans text-sm">
+  <!-- Left Sidebar -->
+  <div class="w-[25%] max-w-[300px] min-w-[200px] flex-shrink-0 bg-dark-bg-secondary border-r border-dark-border-primary flex flex-col shadow-sm">
+    <!-- Conversations List (scrollable) -->
+    <div class="flex-grow overflow-hidden">
       <ConversationsList 
         conversations={conversations}
         selectedConversationId={selectedConversationId}
@@ -677,28 +670,38 @@
         on:openNewChatModal={handleOpenNewChatModal}  
       />
     </div>
+    
+    <!-- User Info Section (fixed at bottom) -->
+    <UserInfoSection 
+      verusIdName={loggedInIdentity?.formatted_name || 'Unknown User'} 
+      privateBalance={privateBalance}
+      blockHeight={blockHeight}
+      isTransactionPending={isTransactionPending}
+      on:logout={handleLogout}
+      on:settings={handleSettings}
+    />
+  </div>
 
-    <!-- Right Panel (Chat View OR Settings View) -->
-    <div class="flex-grow flex flex-col">
-      {#if showSettingsView}
-          <SettingsView 
-              currentPersistenceSetting={persistenceSetting}
-              {loggedInUserIAddress}
-              on:togglePersistence={handlePersistenceToggle}
-              on:deleteHistory={handleDeleteHistory}
-              on:closeSettings={handleCloseSettings}
-          />
-      {:else}
-          <ConversationView 
-              contactName={selectedContactName}
-              messages={selectedMessages}
-              privateBalance={privateBalance}
-              isTransactionPending={isTransactionPending}
-              verusIdName={loggedInIdentity?.formatted_name || ''}
-              on:sendMessage={handleSendMessage}
-          />
-      {/if}
-    </div>
+  <!-- Right Panel (Chat View OR Settings View) -->
+  <div class="flex-grow flex flex-col">
+    {#if showSettingsView}
+        <SettingsView 
+            currentPersistenceSetting={persistenceSetting}
+            {loggedInUserIAddress}
+            on:togglePersistence={handlePersistenceToggle}
+            on:deleteHistory={handleDeleteHistory}
+            on:closeSettings={handleCloseSettings}
+        />
+    {:else}
+        <ConversationView 
+            contactName={selectedContactName}
+            messages={selectedMessages}
+            privateBalance={privateBalance}
+            isTransactionPending={isTransactionPending}
+            verusIdName={loggedInIdentity?.formatted_name || ''}
+            on:sendMessage={handleSendMessage}
+        />
+    {/if}
   </div>
 
   <!-- New Chat Modal -->

@@ -7,6 +7,11 @@
 // - Enhanced visual design with better spacing and hover states
 // - Improved new chat button styling
 // - Added conversation preview functionality foundation
+// - STYLING UPDATE: Implemented Discord-style selection with rounded backgrounds
+// - Removed green left border indicator for selected conversations
+// - Updated to darker background throughout (bg-dark-bg-primary)
+// - Removed border divider between New Chat button and conversation list
+// - Fixed horizontal scrolling issue by removing horizontal margins
 
   import { createEventDispatcher } from 'svelte';
   import { Plus } from 'lucide-svelte';
@@ -40,9 +45,9 @@
 
 </script>
 
-<div class="flex flex-col h-full bg-dark-bg-secondary">
+<div class="flex flex-col h-full bg-dark-bg-primary">
   <!-- Header/New Chat Button -->
-  <div class="p-3 border-b border-dark-border-primary bg-dark-bg-secondary">
+  <div class="p-3 bg-dark-bg-primary">
     <button 
       on:click={handleNewChat}
       class="w-full flex items-center justify-center py-2 px-3 bg-dark-bg-tertiary hover:bg-dark-bg-tertiary/80 border border-dark-border-secondary text-dark-text-primary rounded-md focus:outline-none focus:ring-2 focus:ring-brand-green focus:ring-offset-2 focus:ring-offset-dark-bg-secondary transition-all duration-150 text-sm font-medium"
@@ -53,7 +58,7 @@
   </div>
 
   <!-- Conversation List (Scrollable) -->
-  <div class="flex-grow overflow-y-auto bg-dark-bg-secondary">
+  <div class="flex-grow overflow-y-auto bg-dark-bg-primary px-1.5">
     {#if conversations.length === 0}
         <div class="flex items-center justify-center h-full p-6">
             <div class="text-center">
@@ -68,10 +73,10 @@
         {#each conversations as conversation (conversation.id)}
           <button 
             on:click={() => handleSelect(conversation.id)}
-            class={`w-full text-left px-3 py-3 flex items-center hover:bg-dark-bg-tertiary/60 transition-all duration-150 border-l-2 group
+            class={`w-full text-left px-3 py-3 flex items-center transition-all duration-150 group my-1 rounded-md
             ${selectedConversationId === conversation.id ? 
-              'bg-dark-bg-tertiary border-l-brand-green' : 
-              'border-l-transparent hover:border-l-dark-border-secondary'}`}
+              'bg-white/10' : 
+              'hover:bg-white/5'}`}
           >
             <!-- Avatar -->
             <div class="flex-shrink-0 mr-3">
