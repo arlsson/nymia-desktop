@@ -13,6 +13,7 @@
 // - DYNAMIC LIMITS: Implemented dynamic character limits based on current user's VerusID name length
 // - Replaced hardcoded 412 character limit with calculation considering memo format overhead
 // - Added verusIdName prop and integrated with messageLimit utility function
+// - BUG FIX: Fixed gift overlay cancel button to properly clear amount instead of just hiding overlay
 
   import { createEventDispatcher } from 'svelte';
   import { Send, DollarSign, Gift, X, Check, AlertTriangle } from 'lucide-svelte';
@@ -301,7 +302,7 @@
                             <!-- Confirm/Cancel buttons -->
                             <div class="flex justify-end space-x-2">
                                 <button 
-                                    on:click={toggleFundsInput}
+                                    on:click={clearGiftAmount}
                                     class="px-2 py-1 text-xs text-dark-text-secondary hover:text-dark-text-primary transition-colors"
                                 >
                                     Cancel
