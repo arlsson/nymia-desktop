@@ -129,7 +129,7 @@
                 <!-- Avatar (shown only for first message in group) -->
                 <div class="flex-shrink-0 mr-3">
                   <Avatar 
-                    userId={group.sender === 'self' ? 'You' : group.sender} 
+                    userId={group.sender === 'self' ? verusIdName : group.sender} 
                     size="medium" 
                     showHover={true} 
                   />
