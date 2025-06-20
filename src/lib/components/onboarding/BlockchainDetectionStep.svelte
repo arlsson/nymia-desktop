@@ -8,6 +8,9 @@
 // - Clean list layout with Lucide icons for status indicators
 // - Manual folder selection for custom config locations
 // - Passes credentials via props (saved later during login, not here)
+// Changes:
+// - Modified styling so Available blockchains appear unselected until user clicks them
+// - Removed detection completion message from UI
 
     import { createEventDispatcher, onMount, onDestroy } from 'svelte';
     import { invoke } from '@tauri-apps/api/core';
@@ -216,9 +219,12 @@
         });
     }
 
-    function getStatusColor(status: BlockchainStatus): string {
+    function getStatusColor(status: BlockchainStatus, isSelected: boolean = false): string {
         switch (status) {
-            case 'Available': return 'border-brand-green bg-brand-green/10 hover:bg-brand-green/20';
+            case 'Available': 
+                return isSelected 
+                    ? 'border-brand-green bg-brand-green/10 hover:bg-brand-green/20' 
+                    : 'border-dark-border-primary bg-dark-bg-secondary hover:bg-dark-bg-tertiary hover:border-brand-green/40';
             case 'Loading': return 'border-blue-500/40 bg-blue-800/20';
             case 'Error': return 'border-red-600/40 bg-red-800/20';
             case 'Timeout': return 'border-yellow-600/40 bg-yellow-800/20';
@@ -284,7 +290,7 @@
                         type="button"
                         on:click={() => selectBlockchain(blockchain)}
                         disabled={blockchain.status !== 'Available'}
-                        class="blockchain-item {getStatusColor(blockchain.status)} {blockchain.blockchain_id === selectedBlockchainId ? 'ring-2 ring-brand-green' : ''} {blockchain.status === 'Available' ? 'cursor-pointer hover:scale-[1.01] transition-all duration-150' : 'cursor-not-allowed opacity-75'}"
+                        class="blockchain-item {getStatusColor(blockchain.status, blockchain.blockchain_id === selectedBlockchainId)} {blockchain.blockchain_id === selectedBlockchainId ? 'ring-2 ring-brand-green' : ''} {blockchain.status === 'Available' ? 'cursor-pointer hover:scale-[1.01] transition-all duration-150' : 'cursor-not-allowed opacity-75'}"
                         transition:slide={{ delay: i * 50, duration: 250, easing: quintOut }}
                     >
                         <div class="flex items-center space-x-4">
@@ -390,20 +396,7 @@
         </div>
     {/if}
 
-    <!-- Detection Info -->
-    {#if detectionState === 'completed' && detectionDuration > 0}
-        <div class="mt-6 text-center">
-            <p class="text-xs text-dark-text-tertiary">
-                Detection completed in {detectionDuration}ms
-                {#if detectionResults.filter(r => r.status === 'Available').length > 0}
-                    • {detectionResults.filter(r => r.status === 'Available').length} available
-                {/if}
-                {#if detectionResults.filter(r => r.status === 'Loading').length > 0}
-                    • {detectionResults.filter(r => r.status === 'Loading').length} starting
-                {/if}
-            </p>
-        </div>
-    {/if}
+
 </div>
 
 <style>

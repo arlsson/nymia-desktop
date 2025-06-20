@@ -99,6 +99,7 @@
       // Reset VerusID selection when going back
       selectedIdentity = null;
       blockchainSelected = false; // Reset blockchain selection too
+      selectedBlockchainId = null; // Reset blockchain visual selection
       goToStep('blockchain');
     }
   }

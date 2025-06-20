@@ -8,6 +8,7 @@
 // - Ensured logout event from ChatInterface is handled.
 // - Added fetching and passing of private balance.
 // - Added dynamic currency symbol support by tracking selected blockchain ID and passing to ChatInterface.
+// - Modified to start at blockchain detection step (instead of VerusID step) when stored credentials are found.
 
 	import { onMount, onDestroy } from 'svelte';
 	import { invoke } from '@tauri-apps/api/core';
@@ -42,8 +43,8 @@
 		try {
             storedCredentials = await invoke<Credentials>('load_credentials');
 			console.log('Stored credentials found.');
-            // If creds found, we start onboarding at the ID selection step
-            initialOnboardingStep = 'verusid';
+            // If creds found, we start onboarding at the blockchain detection step
+            initialOnboardingStep = 'blockchain';
             appStatus = 'onboarding'; // Move to onboarding state
             // Start timer only if we potentially skip straight to ID selection or login
             // Note: OnboardingFlow also tries to fetch IDs which implicitly needs creds
