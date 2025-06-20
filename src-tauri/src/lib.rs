@@ -17,6 +17,7 @@
 // - SECURITY: Integrated cryptographic message signing and verification system
 // - Zero-trust messaging: Only verified messages are displayed, unverified messages are silently filtered
 // - MAJOR: Added parallel blockchain detection commands for automatic onboarding
+// - Added macOS window customization with almost black background for native titlebar appearance
 
 mod credentials; // Added credentials module
 mod settings; // Added settings module
@@ -74,6 +75,28 @@ impl From<SettingsError> for CommandError {
             SettingsError::Store(_) => CommandError::Settings("Failed to access settings store.".to_string()),
             _ => CommandError::Settings(error.to_string()),
         }
+    }
+}
+
+// macOS window customization function
+#[cfg(target_os = "macos")]
+fn set_macos_window_background(window: &tauri::WebviewWindow) {
+    use cocoa::appkit::{NSColor, NSWindow};
+    use cocoa::base::{id, nil};
+
+    let ns_window = window.ns_window().unwrap() as id;
+    unsafe {
+        // Almost black color (RGB: 20, 20, 20) - normalized to 0.0-1.0
+        let bg_color = NSColor::colorWithRed_green_blue_alpha_(
+            nil,
+            20.0 / 255.0,   // Red: 20
+            20.0 / 255.0,   // Green: 20 
+            20.0 / 255.0,   // Blue: 20
+            1.0,            // Alpha: 100%
+        );
+        ns_window.setBackgroundColor_(bg_color);
+        
+        log::info!("macOS window background set to almost black (20, 20, 20)");
     }
 }
 
@@ -199,6 +222,49 @@ pub fn run() {
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init())
         .plugin(store_plugin) // Register the store plugin instance
+        .setup(|app| {
+            log::info!("Setting up Tauri application");
+            
+            // Create the main window programmatically for all platforms
+            use tauri::{WebviewUrl, WebviewWindowBuilder};
+            
+            #[cfg(target_os = "macos")]
+            {
+                use tauri::TitleBarStyle;
+                
+                let win_builder = WebviewWindowBuilder::new(app, "main", WebviewUrl::default())
+                    .title("Nymia")
+                    .inner_size(900.0, 600.0)
+                    .visible(true)
+                    .resizable(true)
+                    .title_bar_style(TitleBarStyle::Transparent)
+                    .hidden_title(true)
+                    .accept_first_mouse(true);
+                
+                let window = win_builder.build()?;
+                
+                // Set custom almost black background
+                set_macos_window_background(&window);
+                
+                log::info!("macOS window created with transparent titlebar and custom background");
+            }
+            
+            // For other platforms, create a standard window
+            #[cfg(not(target_os = "macos"))]
+            {
+                let win_builder = WebviewWindowBuilder::new(app, "main", WebviewUrl::default())
+                    .title("Nymia")
+                    .inner_size(900.0, 600.0)
+                    .visible(true)
+                    .resizable(true);
+                
+                let _window = win_builder.build()?;
+                
+                log::info!("Standard window created for non-macOS platform");
+            }
+            
+            Ok(())
+        })
         .invoke_handler(tauri::generate_handler![
             connect_verus_daemon,
             crate::credentials::save_credentials, // Add credential commands
