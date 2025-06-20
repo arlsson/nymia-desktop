@@ -33,6 +33,7 @@ export interface DropdownOption {
 export interface LoginPayload {
     identity: FormattedIdentity;
     blockHeight: number | null;
+    blockchainId: string | null; // NEW: Track selected blockchain for currency symbol
 }
 
 // Potential application states (can be expanded)

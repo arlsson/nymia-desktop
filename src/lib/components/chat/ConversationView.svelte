@@ -15,6 +15,7 @@
 // - Improved text contrast throughout the interface
 // - Fixed UX: Removed cursor-pointer from message containers to prevent false clickable affordance
 // - Added verusIdName prop to pass current user's identity name to MessageInput for dynamic character limits
+// - Added dynamic currency symbol support based on selected blockchain
 
   import { createEventDispatcher, tick } from 'svelte';
   import MessageInput from './MessageInput.svelte';
@@ -30,6 +31,7 @@
   export let privateBalance: PrivateBalance = null;
   export let isTransactionPending: boolean = false;
   export let verusIdName: string; // Current user's VerusID name for dynamic message limit calculation
+  export let currencySymbol: string = 'VRSC'; // Dynamic currency symbol
 
   // --- State ---
   let chatContainer: HTMLElement;
@@ -172,7 +174,7 @@
                                       Gift received!
                                     </span>
                                     <span class="text-lg font-bold bg-clip-text text-transparent bg-gradient-to-r from-purple-400 via-blue-400 to-pink-400">
-                                      {message.amount.toFixed(8)} VRSC
+                                      {message.amount.toFixed(8)} {currencySymbol}
                                     </span>
                                   </div>
                                 </div>
@@ -187,7 +189,7 @@
                               <div>
                                 <span class="text-sm font-medium text-dark-text-primary">Gift sent</span>
                                 <span class="text-sm font-semibold text-brand-green block">
-                                  {message.amount.toFixed(8)} VRSC
+                                  {message.amount.toFixed(8)} {currencySymbol}
                                 </span>
                               </div>
                             </div>
@@ -243,6 +245,7 @@
         {privateBalance}  
         {isTransactionPending}
         {verusIdName}
+        {currencySymbol}
         on:sendMessage={handleSendMessage} 
       />
     </div>

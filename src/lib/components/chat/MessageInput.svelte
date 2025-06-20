@@ -14,6 +14,7 @@
 // - Replaced hardcoded 412 character limit with calculation considering memo format overhead
 // - Added verusIdName prop and integrated with messageLimit utility function
 // - BUG FIX: Fixed gift overlay cancel button to properly clear amount instead of just hiding overlay
+// - Added dynamic currency symbol support based on selected blockchain
 
   import { createEventDispatcher } from 'svelte';
   import { Send, DollarSign, Gift, X, Check, AlertTriangle } from 'lucide-svelte';
@@ -27,6 +28,7 @@
   export let privateBalance: PrivateBalance = null; // Add privateBalance prop
   export let isTransactionPending: boolean = false; // Add pending state prop
   export let verusIdName: string; // Current user's VerusID name for dynamic message limit calculation
+  export let currencySymbol: string = 'VRSC'; // Dynamic currency symbol
 
   // --- State ---
   let messageText: string = '';
@@ -172,7 +174,7 @@
         ? 'text-orange-400' 
         : 'text-white/45';
   $: summaryText = amountToSend && amountToSend > 0 
-      ? `Send ${messageText.trim() ? 'a message with ' : ''}${amountToSend} VRSC gift` 
+      ? `Send ${messageText.trim() ? 'a message with ' : ''}${amountToSend} ${currencySymbol} gift` 
       : 'Send message';
       
   // FIX: Corrected disabled logic: button enabled if (message is valid OR amount is valid) AND confirmation is not shown AND balance is sufficient AND NO PENDING TX
@@ -253,7 +255,7 @@
                         disabled={showConfirmation}
                         class="gift-button p-1.5 rounded-md transition-all duration-200 hover:scale-110 disabled:opacity-50 disabled:cursor-not-allowed"
                         class:gift-button-active={showFundsInput}
-                        title="Add a gift of VRSC to your message"
+                        title={`Add a gift of ${currencySymbol} to your message`}
                     >
                         <Gift size={26} class="gift-icon" />
                     </button>
@@ -280,7 +282,7 @@
                                     on:keydown={handleGiftInputKeyDown}
                                 />
                                 <div class="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-dark-text-secondary font-medium">
-                                    VRSC
+                                    {currencySymbol}
                                 </div>
                             </div>
                             
@@ -288,12 +290,12 @@
                             {#if insufficientBalanceError}
                                 <div class="mb-3 text-xs text-red-400 flex items-start">
                                     <AlertTriangle size={12} class="mr-1 mt-0.5 shrink-0"/>
-                                    <span>Insufficient balance. Max: {(privateBalance !== null ? (privateBalance - TX_FEE) : 0).toFixed(4)} VRSC</span>
+                                    <span>Insufficient balance. Max: {(privateBalance !== null ? (privateBalance - TX_FEE) : 0).toFixed(4)} {currencySymbol}</span>
                                 </div>
                             {/if}
                             
                             <div class="mb-3 text-xs text-dark-text-disabled">
-                                Fee: 0.0001 VRSC
+                                Fee: 0.0001 {currencySymbol}
                             </div>
                             
                             <!-- Confirm/Cancel buttons -->
@@ -347,7 +349,7 @@
     
     <!-- Information text -->
     <div class="text-xs text-left text-white/60">
-        Messages and gifts cost 0.0001 VRSC, are end-to-end encrypted and invisible to outsiders.
+        Messages and gifts cost 0.0001 {currencySymbol}, are end-to-end encrypted and invisible to outsiders.
     </div>
     
     <!-- Confirmation Dialog -->
@@ -377,16 +379,16 @@
                             <div class="absolute inset-0 bg-gradient-to-br from-indigo-500 via-purple-500 to-pink-500 gift-gradient-shift opacity-90"></div>
                             <div class="relative z-10 flex items-center text-white font-medium">
                                 <Gift size={14} class="mr-1.5" />
-                                <span>Gift: {amountToSend} VRSC</span>
+                                <span>Gift: {amountToSend} {currencySymbol}</span>
                             </div>
                         </div>
                     {/if}
                     
                     <!-- Fee Details -->
                     <div class="mt-3 mb-4 text-xs text-dark-text-disabled flex justify-between items-center">
-                        <span>Transaction fee: 0.0001 VRSC</span>
+                        <span>Transaction fee: 0.0001 {currencySymbol}</span>
                         <span class="font-medium text-dark-text-secondary">
-                            Total: {((amountToSend || 0) + 0.0001).toFixed(8)} VRSC
+                            Total: {((amountToSend || 0) + 0.0001).toFixed(8)} {currencySymbol}
                         </span>
                     </div>
                 </div>

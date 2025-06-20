@@ -7,6 +7,7 @@
 // - Discord-style layout with avatar, name, and action buttons
 // - Balance and block height on separate lines
 // - Fixed positioning at bottom of sidebar
+// - Added dynamic currency symbol support based on selected blockchain
 
   import { createEventDispatcher } from 'svelte';
   import { LogOut, Settings, Layers, Loader } from 'lucide-svelte';
@@ -18,6 +19,7 @@
   export let privateBalance: PrivateBalance = null;
   export let blockHeight: number | null = null;
   export let isTransactionPending: boolean = false;
+  export let currencySymbol: string = 'VRSC'; // Dynamic currency symbol
 
   // --- Events ---
   const dispatch = createEventDispatcher<{
@@ -34,7 +36,7 @@
   }
 
   // Format balance for display
-  $: formattedBalance = privateBalance !== null ? `${privateBalance.toFixed(4)} VRSC` : 'Loading...';
+  $: formattedBalance = privateBalance !== null ? `${privateBalance.toFixed(4)} ${currencySymbol}` : 'Loading...';
 
 </script>
 

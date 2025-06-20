@@ -155,14 +155,16 @@
           console.log(`OnboardingFlow: Login initiated for ${selectedIdentity.formatted_name} (${selectedIdentity.i_address})`);
           dispatch('login-success', {
              identity: selectedIdentity,
-             blockHeight: connectionBlockHeight 
+             blockHeight: connectionBlockHeight,
+             blockchainId: selectedBlockchainId
           });
       } catch (error) {
           console.error("OnboardingFlow: Failed to save credentials during login:", error);
           // Could show error to user, but for now we'll still proceed with login
           dispatch('login-success', {
              identity: selectedIdentity,
-             blockHeight: connectionBlockHeight 
+             blockHeight: connectionBlockHeight,
+             blockchainId: selectedBlockchainId
           });
       }
   }

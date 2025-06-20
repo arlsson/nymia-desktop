@@ -23,6 +23,7 @@
 // - Added UserInfoSection component at bottom of sidebar with user info, balance, and controls.
 // - Restructured layout to have ConversationsList and UserInfoSection in left sidebar.
 // - Right panel now takes full screen height with ConversationView/SettingsView.
+// - DYNAMIC CURRENCY: Added dynamic currency symbol support based on selected blockchain.
 
   import { createEventDispatcher, onMount, onDestroy } from 'svelte';
   import { invoke } from '@tauri-apps/api/core';
@@ -33,11 +34,13 @@
   import SettingsView from './settings/SettingsView.svelte'; // Import settings view
   import UserInfoSection from './chat/UserInfoSection.svelte'; // Import user info section
   import type { FormattedIdentity, PrivateBalance, ChatMessage, Conversation } from '$lib/types';
+  import { getCurrencySymbol } from '$lib/utils/currencySymbol';
 
   // --- Props ---
   export let loggedInIdentity: FormattedIdentity | null = null; // Received from parent (+page.svelte)
   export let blockHeight: number | null = null; // Received from parent (+page.svelte)
   export let privateBalance: PrivateBalance = null; // Use the new type alias
+  export let blockchainId: string | null = null; // NEW: Selected blockchain for dynamic currency symbol
 
   // --- Constants ---
   const POLLING_INTERVAL_MS = 30000; // 30 seconds
@@ -72,6 +75,7 @@
   $: loggedInUserPrivateAddress = loggedInIdentity?.private_address;
   $: loggedInUserIdentityName = loggedInIdentity?.formatted_name;
   $: loggedInUserIAddress = loggedInIdentity?.i_address; // Needed for persistence keys
+  $: currencySymbol = getCurrencySymbol(blockchainId); // Dynamic currency symbol
 
   // --- Lifecycle ---
   onMount(() => {
@@ -677,6 +681,7 @@
       privateBalance={privateBalance}
       blockHeight={blockHeight}
       isTransactionPending={isTransactionPending}
+      currencySymbol={currencySymbol}
       on:logout={handleLogout}
       on:settings={handleSettings}
     />
@@ -699,6 +704,7 @@
             privateBalance={privateBalance}
             isTransactionPending={isTransactionPending}
             verusIdName={loggedInIdentity?.formatted_name || ''}
+            currencySymbol={currencySymbol}
             on:sendMessage={handleSendMessage}
         />
     {/if}

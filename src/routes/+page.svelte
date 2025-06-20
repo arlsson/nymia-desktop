@@ -7,6 +7,7 @@
 // - Updated imports and component usage in the template.
 // - Ensured logout event from ChatInterface is handled.
 // - Added fetching and passing of private balance.
+// - Added dynamic currency symbol support by tracking selected blockchain ID and passing to ChatInterface.
 
 	import { onMount, onDestroy } from 'svelte';
 	import { invoke } from '@tauri-apps/api/core';
@@ -32,6 +33,7 @@
     let loggedInIdentity: FormattedIdentity | null = null;
     let currentBlockHeight: number | null = null;
     let currentPrivateBalance: PrivateBalance = null;
+    let selectedBlockchainId: string | null = null; // Track selected blockchain for currency symbol
     let blockCheckIntervalId: ReturnType<typeof setInterval> | null = null;
 
     // --- Lifecycle --- 
@@ -77,6 +79,7 @@
         console.log("Login successful from OnboardingFlow:", event.detail);
         loggedInIdentity = event.detail.identity;
         currentBlockHeight = event.detail.blockHeight;
+        selectedBlockchainId = event.detail.blockchainId; // Capture selected blockchain
         appStatus = 'loggedIn';
         currentPrivateBalance = null; // Reset balance before fetching
 
@@ -125,6 +128,7 @@
         
         loggedInIdentity = null;
         currentPrivateBalance = null; // Clear balance on logout
+        selectedBlockchainId = null; // Clear blockchain selection on logout
         initialOnboardingStep = 'verusid'; 
         appStatus = 'onboarding';
         // Restart timer as we are back in an authenticated state (RPC creds still valid)
@@ -267,6 +271,7 @@
             loggedInIdentity={loggedInIdentity}
             bind:blockHeight={currentBlockHeight}
             privateBalance={currentPrivateBalance}
+            blockchainId={selectedBlockchainId}
             on:logout={handleLogout} 
         />
     
