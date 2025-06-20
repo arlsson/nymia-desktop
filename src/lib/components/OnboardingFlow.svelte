@@ -12,6 +12,10 @@
 // - Added fade-in animation (fly from right) for the right panel image
 // - Moved image asset to static directory and updated path
 // - Wrapped animating image in a div with static transform to fix animation jump
+// - Removed hardcoded port fallback - ports must come from credentials or be undefined
+// - MAJOR: Replaced manual blockchain + credentials steps with automatic BlockchainDetectionStep
+// - Simplified onboarding to Welcome → Detection → VerusID (3 steps instead of 4)
+// - Automatic credential saving and blockchain selection
 
   import { createEventDispatcher, onMount } from 'svelte';
   import { invoke } from '@tauri-apps/api/core';
@@ -20,8 +24,7 @@
 
   // Import Step Components
   import WelcomeStep from './onboarding/WelcomeStep.svelte';
-  import BlockchainStep from './onboarding/BlockchainStep.svelte';
-  import CredentialsStep from './onboarding/CredentialsStep.svelte';
+  import BlockchainDetectionStep from './onboarding/BlockchainDetectionStep.svelte';
   import VerusIdStep from './onboarding/VerusIdStep.svelte';
 
   // Import Shared Types
@@ -29,12 +32,11 @@
       Credentials, 
       FormattedIdentity, 
       LoginPayload, 
-      DropdownOption, 
       OnboardingStep 
   } from '$lib/types';
 
   // --- Types ---
-  type Step = 'welcome' | 'blockchain' | 'credentials' | 'verusid';
+  type Step = 'welcome' | 'blockchain' | 'verusid';
 
   // --- Props ---
   export let initialStep: OnboardingStep = 'welcome';
@@ -44,25 +46,15 @@
   let currentStep: OnboardingStep = initialStep;
   
   // Shared state between steps
-  let rpcUser = initialCredentials?.rpc_user || '';
-  let rpcPassword = initialCredentials?.rpc_pass || '';
-  let connectionBlockHeight: number | null = null; // Updated by CredentialsStep
   let selectedIdentity: FormattedIdentity | null = null; // Store the full selected identity
-  let currentCredentialsFromChild: Credentials | null = initialCredentials; // Track latest from CredentialsStep
-  let connectionTestedSuccessfully = false; // Track if connection test passed in CredentialsStep
+  let currentCredentials: Credentials | null = initialCredentials; // Track latest credentials from detection
+  let connectionBlockHeight: number | null = null; // Updated by BlockchainDetectionStep
+  let selectedBlockchainId: string | null = null; // Track selected blockchain
+  let detectionCompleted = false; // Track if detection step is completed
+  let availableBlockchainsCount = 0; // Track how many blockchains are available
 
   // Visibility state for right panel image animation
   let imageVisible = false;
-
-  // Blockchain Step specific state
-  let selectedBlockchain = 'verus-testnet'; // Only option for now
-  const blockchainOptions: DropdownOption[] = [
-    { id: 'verus-testnet', name: 'Verus Testnet', enabled: true },
-    { id: 'verus', name: 'Verus', enabled: false },
-    { id: 'vdex', name: 'vDEX', enabled: false },
-    { id: 'varrr', name: 'vARRR', enabled: false },
-    { id: 'chips', name: 'CHIPS', enabled: false },
-  ];
 
   // --- Event Dispatcher (to parent: +page.svelte) ---
   const dispatch = createEventDispatcher<{
@@ -78,19 +70,17 @@
     }, 300); // 300ms delay
   });
 
-  // Update internal credentials if initialCredentials prop changes (e.g., on logout/restart)
-  $: if (initialCredentials && (initialCredentials.rpc_user !== rpcUser || initialCredentials.rpc_pass !== rpcPassword)) {
-      console.log("OnboardingFlow: initialCredentials prop changed, updating internal state.");
-      rpcUser = initialCredentials.rpc_user;
-      rpcPassword = initialCredentials.rpc_pass;
-      currentCredentialsFromChild = initialCredentials;
+  // Update internal state if initialCredentials prop changes (e.g., on logout/restart)
+  $: if (initialCredentials && initialCredentials !== currentCredentials) {
+      console.log("OnboardingFlow: initialCredentials prop changed, updating internal state. Port:", initialCredentials.rpc_port);
+      currentCredentials = initialCredentials;
       // Also reset identity selection if creds change during onboarding
       selectedIdentity = null; 
   }
   
-  // Reset connection success flag when moving away from credentials step
-  $: if (currentStep !== 'credentials') {
-      connectionTestedSuccessfully = false;
+  // Reset relevant state when moving away from detection step
+  $: if (currentStep !== 'blockchain') {
+      // Keep the detection state for navigation logic
   }
 
   // --- Step Navigation ---
@@ -105,9 +95,7 @@
   function nextStep() {
     if (currentStep === 'welcome') {
       goToStep('blockchain');
-    } else if (currentStep === 'blockchain') {
-      goToStep('credentials');
-    } else if (currentStep === 'credentials' && connectionTestedSuccessfully) {
+    } else if (currentStep === 'blockchain' && detectionCompleted && currentCredentials) {
       goToStep('verusid');
     }
   }
@@ -115,12 +103,10 @@
   function prevStep() {
     if (currentStep === 'blockchain') {
       goToStep('welcome');
-    } else if (currentStep === 'credentials') {
-      goToStep('blockchain');
     } else if (currentStep === 'verusid') {
       // Reset VerusID selection when going back
       selectedIdentity = null;
-      goToStep('credentials');
+      goToStep('blockchain');
     }
   }
 
@@ -129,35 +115,27 @@
     goToStep('blockchain');
   }
 
-  function handleBlockchainChange(event: CustomEvent<string | number | null>) {
-      // Update local state, parent component handles enabling/disabling next button
-      const value = event.detail;
-      if (typeof value === 'string') { // Ensure it's a string for blockchain ID
-        selectedBlockchain = value;
-      }
+  function handleBlockchainSelected(event: CustomEvent<{ 
+    blockchainId: string; 
+    credentials: Credentials; 
+    blockHeight: number;
+  }>) {
+    console.log("OnboardingFlow: Blockchain selected event received");
+    const { blockchainId, credentials, blockHeight } = event.detail;
+    
+    // Update shared state
+    selectedBlockchainId = blockchainId;
+    currentCredentials = credentials;
+    connectionBlockHeight = blockHeight;
+    detectionCompleted = true;
+    
+    console.log(`OnboardingFlow: Selected ${blockchainId} with block height ${blockHeight}`);
   }
 
-  function handleCredentialsChanged(event: CustomEvent<Credentials>) {
-      // Keep parent state synced with CredentialsStep inputs
-      currentCredentialsFromChild = event.detail;
-      // Reset test success flag if credentials change
-      connectionTestedSuccessfully = false; 
-  }
-
-  function handleTestSuccess(event: CustomEvent<{ blockHeight: number; credentials: Credentials }>) {
-      console.log("OnboardingFlow: Received testSuccess event");
-      connectionBlockHeight = event.detail.blockHeight;
-      // Update shared credentials state with the ones that passed the test
-      rpcUser = event.detail.credentials.rpc_user;
-      rpcPassword = event.detail.credentials.rpc_pass;
-      currentCredentialsFromChild = event.detail.credentials;
-      connectionTestedSuccessfully = true; // Enable moving to next step
-  }
-
-  function handleTestError(event: CustomEvent<{ error: string }>) {
-      console.log("OnboardingFlow: Received testError event");
-      connectionBlockHeight = null;
-      connectionTestedSuccessfully = false; // Disable moving to next step
+  function handleDetectionCompleted(event: CustomEvent<{ availableCount: number }>) {
+    console.log("OnboardingFlow: Detection completed event received");
+    availableBlockchainsCount = event.detail.availableCount;
+    detectionCompleted = true;
   }
 
   function handleIdSelected(event: CustomEvent<{ identity: FormattedIdentity | null }>) {
@@ -166,31 +144,8 @@
       // Parent component (this one) controls enabling the login button via `isPrimaryButtonDisabled`
   }
 
-  async function handleClearAuthenticationRequest() {
-      console.log("OnboardingFlow: Received clearAuthentication request, handling...");
-      try {
-          await invoke('clear_credentials');
-          console.log("OnboardingFlow: Stored credentials cleared via Tauri.");
-          // Reset local state
-          rpcUser = '';
-          rpcPassword = '';
-          connectionBlockHeight = null;
-          selectedIdentity = null; 
-          currentCredentialsFromChild = null;
-          connectionTestedSuccessfully = false;
-          // Dispatch event up to +page.svelte
-          dispatch('authentication-cleared');
-          // Go back to the first step
-          goToStep('welcome'); 
-      } catch (clearError) {
-          console.error("OnboardingFlow: Failed to clear stored credentials:", clearError);
-          // TODO: Show error to the user within the VerusIdStep? Or here?
-          // For now, just log it and stay on the current step.
-      }
-  }
-
   async function handleLogin() {
-      if (!selectedIdentity || !currentCredentialsFromChild) {
+      if (!selectedIdentity || !currentCredentials) {
           console.error("OnboardingFlow: Cannot login - missing selected ID or credentials.");
           return;
       }
@@ -202,22 +157,19 @@
       });
   }
 
-  // --- Dynamic Button Logic (Remains Here) ---
+  // --- Dynamic Button Logic ---
   $: primaryButtonLabel = 
       currentStep === 'welcome' ? 'Get Started' :
-      currentStep === 'blockchain' ? 'Next' : 
-      currentStep === 'credentials' ? 'Continue' : 'Login';
+      currentStep === 'blockchain' ? 'Continue' : 'Login';
 
   $: isPrimaryButtonDisabled = 
       currentStep === 'welcome' ? false :
-      (currentStep === 'blockchain' && selectedBlockchain !== 'verus-testnet') ||
-      (currentStep === 'credentials' && !connectionTestedSuccessfully) || // Use the flag
+      (currentStep === 'blockchain' && (!detectionCompleted || !currentCredentials)) ||
       (currentStep === 'verusid' && !selectedIdentity); // Check the full object
 
   $: primaryButtonAction = 
       currentStep === 'welcome' ? handleGetStarted :
-      currentStep === 'blockchain' ? nextStep :
-      currentStep === 'credentials' ? nextStep : handleLogin;
+      currentStep === 'blockchain' ? nextStep : handleLogin;
 
 </script>
 
@@ -241,28 +193,17 @@
                  </div>
               {:else if currentStep === 'blockchain'}
                  <div transition:slide|local={{ duration: 300, easing: quintOut }}>
-                     <BlockchainStep 
-                        options={blockchainOptions} 
-                        bind:selectedId={selectedBlockchain}
-                        on:change={handleBlockchainChange}
-                     />
-                 </div>
-              {:else if currentStep === 'credentials'}
-                 <div transition:slide|local={{ duration: 300, easing: quintOut }}>
-                     <CredentialsStep 
-                        initialRpcUser={rpcUser} 
-                        initialRpcPassword={rpcPassword} 
-                        on:testSuccess={handleTestSuccess}
-                        on:testError={handleTestError}
-                        on:credentialsChanged={handleCredentialsChanged}
+                     <BlockchainDetectionStep 
+                        bind:selectedBlockchainId={selectedBlockchainId}
+                        on:blockchainSelected={handleBlockchainSelected}
+                        on:detectionCompleted={handleDetectionCompleted}
                      />
                  </div>
               {:else if currentStep === 'verusid'}
                  <div transition:slide|local={{ duration: 300, easing: quintOut }}>
                      <VerusIdStep 
-                        credentials={currentCredentialsFromChild} 
+                        credentials={currentCredentials} 
                         on:idSelected={handleIdSelected}
-                        on:clearAuthentication={handleClearAuthenticationRequest}
                      />
                  </div>
               {/if}
@@ -282,17 +223,6 @@
                      Back
                 </button>
               {/if}
-
-              <!-- Clear Authentication Button (Only on VerusID step, before Login) -->
-             {#if currentStep === 'verusid'}
-                 <button 
-                    type="button"
-                    on:click={handleClearAuthenticationRequest} 
-                    class="py-2 px-3 border border-dark-border-primary rounded-md shadow-sm text-xs font-medium text-dark-text-primary bg-dark-bg-secondary hover:bg-dark-bg-tertiary focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-brand-green transition duration-150 ease-in-out"
-                >
-                     Clear Authentication
-                </button>
-            {/if}
 
              <!-- Primary Action Button -->
               <button 
@@ -400,7 +330,5 @@
       width: 100%;
       /* max-width and margin removed, handled by parent div */
   }
-
-  /* Input styles - removed as inputs are in CredentialsStep.svelte now */
 
 </style>

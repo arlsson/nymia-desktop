@@ -8,8 +8,6 @@
   // Import Shared Types
   import type { DropdownOption } from '$lib/types';
 
-  // --- Interface Definition Removed ---
-
   // --- Props ---
   export let options: DropdownOption[] = []; // Use imported type
   export let selectedId: string | number | null = null;
@@ -35,6 +33,8 @@
         placeholder="Select network..."
         on:change={handleSelection}
     />
+
+
 </div>
 
 <style>

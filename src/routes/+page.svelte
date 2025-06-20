@@ -48,8 +48,16 @@
             startBlockCheckTimer(); 
 		} catch (error: any) {
             const errorStr = String(error);
-            if (errorStr === 'NotFound' || errorStr.includes("not found")) {
-                console.log('No stored credentials found, starting onboarding at step 1.');
+            if (errorStr === 'NotFound' || errorStr.includes("not found") || errorStr.includes("Deserialization")) {
+                console.log('No stored credentials found or credentials incompatible (missing rpc_port field), starting onboarding from beginning.');
+                // Clear any incompatible stored credentials
+                try {
+                    await invoke('clear_credentials');
+                    console.log('Cleared incompatible stored credentials.');
+                } catch (clearError) {
+                    console.warn('Failed to clear stored credentials:', clearError);
+                }
+                storedCredentials = null;
                 initialOnboardingStep = 'blockchain';
                 appStatus = 'onboarding'; // Normal start
             } else {
@@ -104,6 +112,7 @@
 
     function handleLogout() {
         console.log("Logout event received from ChatInterface.");
+        console.log("Logout: storedCredentials before logout:", storedCredentials?.rpc_port);
         loggedInIdentity = null;
         currentPrivateBalance = null; // Clear balance on logout
         initialOnboardingStep = 'verusid'; 
@@ -160,6 +169,7 @@
             const blockHeightResult = await invoke<number>('connect_verus_daemon', {
                  rpcUser: credsToCheck.rpc_user,
                  rpcPass: credsToCheck.rpc_pass,
+                 rpcPort: credsToCheck.rpc_port,
             });
             currentBlockHeight = blockHeightResult;
             console.log(`Block height updated: ${currentBlockHeight}`);
@@ -206,11 +216,28 @@
     <!-- Startup Error State -->
     {:else if appStatus === 'error'}
          <div class="flex items-center justify-center h-screen bg-red-900">
-            <div class="text-center p-8 border border-red-500 rounded bg-dark-bg-secondary shadow-lg">
+            <div class="text-center p-8 border border-red-500 rounded bg-dark-bg-secondary shadow-lg max-w-lg">
                 <h1 class="text-2xl font-bold text-red-400 mb-4">Application Error</h1>
                 <p class="text-red-300">Could not start the application due to an error:</p>
                 <p class="mt-2 p-2 bg-red-800 text-red-200 rounded font-mono text-sm">{startupError || 'An unknown error occurred.'}</p>
-                 <p class="mt-4 text-sm text-dark-text-secondary">Please check your setup or try restarting the application.</p>
+                <p class="mt-4 text-sm text-dark-text-secondary">Please check your setup or try restarting the application.</p>
+                
+                <!-- Add a button to clear stored data and restart -->
+                <button 
+                    class="mt-4 px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded font-medium text-sm transition-colors"
+                    on:click={async () => {
+                        try {
+                            await invoke('clear_credentials');
+                            console.log('Cleared stored credentials from error state.');
+                            // Reload the page to restart the app
+                            location.reload();
+                        } catch (e) {
+                            console.error('Failed to clear credentials:', e);
+                        }
+                    }}
+                >
+                    Clear Stored Data & Restart
+                </button>
             </div>
         </div>
 

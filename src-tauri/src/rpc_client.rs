@@ -70,11 +70,12 @@ impl From<reqwest::Error> for VerusRpcError {
 pub async fn make_rpc_call<T: for<'de> Deserialize<'de>>(
     rpc_user: &str,
     rpc_pass: &str,
+    rpc_port: u16,
     method: &str,
     params: Vec<Value>,
 ) -> Result<T, VerusRpcError> {
     let client = reqwest::Client::new();
-    let rpc_url = "http://localhost:18843";
+    let rpc_url = format!("http://localhost:{}", rpc_port);
 
     let request_body = json!({
         "jsonrpc": "1.0",
@@ -129,6 +130,7 @@ pub async fn make_rpc_call<T: for<'de> Deserialize<'de>>(
 pub async fn sign_message(
     rpc_user: &str,
     rpc_pass: &str,
+    rpc_port: u16,
     verusid: &str,
     message: &str,
 ) -> Result<SignatureResponse, VerusRpcError> {
@@ -137,7 +139,7 @@ pub async fn sign_message(
 
     let params = vec![json!(verusid), json!(message)];
     
-    match make_rpc_call::<SignatureResponse>(rpc_user, rpc_pass, "signmessage", params).await {
+    match make_rpc_call::<SignatureResponse>(rpc_user, rpc_pass, rpc_port, "signmessage", params).await {
         Ok(signature_response) => {
             log::info!("Message signed successfully. Hash: {}", signature_response.hash);
             Ok(signature_response)
@@ -153,6 +155,7 @@ pub async fn sign_message(
 pub async fn verify_message(
     rpc_user: &str,
     rpc_pass: &str,
+    rpc_port: u16,
     verusid: &str,
     signature: &str,
     message: &str,
@@ -163,7 +166,7 @@ pub async fn verify_message(
 
     let params = vec![json!(verusid), json!(signature), json!(message)];
     
-    match make_rpc_call::<bool>(rpc_user, rpc_pass, "verifymessage", params).await {
+    match make_rpc_call::<bool>(rpc_user, rpc_pass, rpc_port, "verifymessage", params).await {
         Ok(is_valid) => {
             if is_valid {
                 log::debug!("Message signature verified successfully for {}", verusid);

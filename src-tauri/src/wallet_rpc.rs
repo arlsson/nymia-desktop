@@ -12,13 +12,14 @@ use super::rpc_client::{make_rpc_call, VerusRpcError};
 pub async fn connect_and_get_block_height(
     rpc_user: String,
     rpc_pass: String,
+    rpc_port: u16,
 ) -> Result<u64, VerusRpcError> {
     log::info!("Attempting to connect to Verus daemon...");
-    make_rpc_call(&rpc_user, &rpc_pass, "getblockcount", vec![]).await
+    make_rpc_call(&rpc_user, &rpc_pass, rpc_port, "getblockcount", vec![]).await
 }
 
 // NEW function to get balance for a z-address
-pub async fn get_private_balance(rpc_user: String, rpc_pass: String, address: String) -> Result<f64, VerusRpcError> {
+pub async fn get_private_balance(rpc_user: String, rpc_pass: String, rpc_port: u16, address: String) -> Result<f64, VerusRpcError> {
     log::info!("Fetching private balance for address: {}", address);
-    make_rpc_call(&rpc_user, &rpc_pass, "z_getbalance", vec![json!(address)]).await
+    make_rpc_call(&rpc_user, &rpc_pass, rpc_port, "z_getbalance", vec![json!(address)]).await
 } 

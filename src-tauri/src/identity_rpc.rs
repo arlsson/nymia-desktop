@@ -20,12 +20,14 @@ pub struct FormattedIdentity {
 pub async fn get_login_identities(
     rpc_user: String,
     rpc_pass: String,
+    rpc_port: u16,
 ) -> Result<Vec<FormattedIdentity>, VerusRpcError> {
     log::info!("Fetching identities for login selection...");
 
     let identities_raw: Vec<Value> = make_rpc_call(
         &rpc_user,
         &rpc_pass,
+        rpc_port,
         "listidentities",
         vec![json!(true), json!(true), json!(true)],
     )
@@ -59,7 +61,7 @@ pub async fn get_login_identities(
                     if parent_id != system_id {
                         log::debug!("Identity '{}' is a sub-ID. Fetching parent '{}'...", name, parent_id);
                         // Make the second RPC call to get the parent identity details
-                        match make_rpc_call::<Value>(&rpc_user, &rpc_pass, "getidentity", vec![json!(parent_id)]).await {
+                        match make_rpc_call::<Value>(&rpc_user, &rpc_pass, rpc_port, "getidentity", vec![json!(parent_id)]).await {
                             Ok(parent_identity_result) => {
                                 // Extract parent name from its nested identity object
                                 if let Some(parent_name) = parent_identity_result
@@ -114,6 +116,7 @@ pub async fn get_login_identities(
 pub async fn check_identity_eligibility(
     rpc_user: String,
     rpc_pass: String,
+    rpc_port: u16,
     target_identity_name: String,
 ) -> Result<FormattedIdentity, VerusRpcError> {
     log::info!("Checking eligibility for identity: {}", target_identity_name);
@@ -124,7 +127,7 @@ pub async fn check_identity_eligibility(
         return Err(VerusRpcError::InvalidFormat);
     }
 
-    match make_rpc_call::<Value>(&rpc_user, &rpc_pass, "getidentity", vec![json!(target_identity_name)]).await {
+    match make_rpc_call::<Value>(&rpc_user, &rpc_pass, rpc_port, "getidentity", vec![json!(target_identity_name)]).await {
         Ok(identity_result) => {
             log::debug!("getidentity result for {}: {:?}", target_identity_name, identity_result);
             if let Some(identity_details) = identity_result.get("identity") {
@@ -147,7 +150,7 @@ pub async fn check_identity_eligibility(
                         if parent_id != system_id {
                             log::debug!("Identity '{}' is a sub-ID. Fetching parent '{}'...", name, parent_id);
                             // Get parent identity to format the name properly (name.parentname@)
-                            match make_rpc_call::<Value>(&rpc_user, &rpc_pass, "getidentity", vec![json!(parent_id)]).await {
+                            match make_rpc_call::<Value>(&rpc_user, &rpc_pass, rpc_port, "getidentity", vec![json!(parent_id)]).await {
                                 Ok(parent_identity_result) => {
                                     // Extract parent name from the parent identity details
                                     if let Some(parent_name) = parent_identity_result

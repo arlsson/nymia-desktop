@@ -46,6 +46,7 @@ pub struct ReceivedByAddressEntry {
 async fn parse_and_verify_message(
     rpc_user: &str,
     rpc_pass: &str,
+    rpc_port: u16,
     memo: &str,
     txid: &str,
 ) -> Option<(String, String, u64, String)> { // Returns (message_text, sender_id, timestamp, signature) if valid
@@ -68,7 +69,7 @@ async fn parse_and_verify_message(
                     let original_message = format!("{}//f//{}//t//{}", message_text, sender_id, timestamp);
                     
                     // Verify the signature
-                    match verify_message(rpc_user, rpc_pass, sender_id, signature, &original_message).await {
+                    match verify_message(rpc_user, rpc_pass, rpc_port, sender_id, signature, &original_message).await {
                         Ok(true) => {
                             log::debug!("Message verification successful for tx {}: '{}' from {} at timestamp {}", 
                                 txid, message_text, sender_id, timestamp);
@@ -106,6 +107,7 @@ async fn parse_and_verify_message(
 pub async fn get_chat_history(
     rpc_user: String,
     rpc_pass: String,
+    rpc_port: u16,
     target_identity_name: String, // The user we want history *from*
     own_private_address: String, // The logged-in user's z-addr
 ) -> Result<Vec<ChatMessage>, VerusRpcError> {
@@ -115,6 +117,7 @@ pub async fn get_chat_history(
     let received_txs: Vec<ReceivedByAddressEntry> = make_rpc_call(
         &rpc_user,
         &rpc_pass,
+        rpc_port,
         "z_listreceivedbyaddress",
         params,
     )
@@ -128,7 +131,7 @@ pub async fn get_chat_history(
         if let Some(memostr) = tx.memostr {
             // Parse and verify message - only verified messages are processed
             if let Some((message_text, sender_id, timestamp, _signature)) = 
-                parse_and_verify_message(&rpc_user, &rpc_pass, &memostr, &tx.txid).await {
+                parse_and_verify_message(&rpc_user, &rpc_pass, rpc_port, &memostr, &tx.txid).await {
                 
                 // Only process if this message is from the target identity
                 if sender_id == target_identity_name {
@@ -158,6 +161,7 @@ pub async fn get_chat_history(
 pub async fn get_new_received_messages(
     rpc_user: String,
     rpc_pass: String,
+    rpc_port: u16,
     own_private_address: String, // The logged-in user's z-addr
 ) -> Result<Vec<ChatMessage>, VerusRpcError> {
     log::info!("Polling for new received messages for owner {}", own_private_address);
@@ -167,6 +171,7 @@ pub async fn get_new_received_messages(
     let received_txs: Vec<ReceivedByAddressEntry> = match make_rpc_call(
         &rpc_user,
         &rpc_pass,
+        rpc_port,
         "z_listreceivedbyaddress",
         params,
     ).await {
@@ -187,7 +192,7 @@ pub async fn get_new_received_messages(
         if let Some(memostr) = tx.memostr {
             // Parse and verify message - only verified messages are processed
             if let Some((message_text, sender_id, timestamp, _signature)) = 
-                parse_and_verify_message(&rpc_user, &rpc_pass, &memostr, &tx.txid).await {
+                parse_and_verify_message(&rpc_user, &rpc_pass, rpc_port, &memostr, &tx.txid).await {
                 
                 // Validate sender format
                 let is_valid_sender = sender_id.ends_with('@') && sender_id.len() > 1;
@@ -230,6 +235,7 @@ pub async fn get_new_received_messages(
 pub async fn send_private_message(
     rpc_user: String,
     rpc_pass: String,
+    rpc_port: u16,
     sender_z_address: String,      // Logged-in user's private address
     recipient_z_address: String, // Target user's private address
     memo_text: String,             // The actual message content (optional)
@@ -259,7 +265,7 @@ pub async fn send_private_message(
     log::debug!("Base message for signing: \"{}\" (timestamp: {})", base_message, timestamp);
 
     // 3. MANDATORY SIGNING: Sign the base message
-    let signature_response = match sign_message(&rpc_user, &rpc_pass, &sender_identity, &base_message).await {
+    let signature_response = match sign_message(&rpc_user, &rpc_pass, rpc_port, &sender_identity, &base_message).await {
         Ok(sig) => {
             log::info!("Message signed successfully. Hash: {}", sig.hash);
             sig
@@ -299,7 +305,7 @@ pub async fn send_private_message(
 
     // 7. Make the RPC call
     log::info!("Executing z_sendmany with signed message...");
-    match make_rpc_call::<String>(&rpc_user, &rpc_pass, "z_sendmany", params).await {
+    match make_rpc_call::<String>(&rpc_user, &rpc_pass, rpc_port, "z_sendmany", params).await {
         Ok(txid) => {
             log::info!("z_sendmany successful with signed message, txid: {}", txid);
             Ok(txid)

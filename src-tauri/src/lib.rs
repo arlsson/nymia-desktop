@@ -16,6 +16,7 @@
 // - Corrected use statements and function call paths to reflect new module structure.
 // - SECURITY: Integrated cryptographic message signing and verification system
 // - Zero-trust messaging: Only verified messages are displayed, unverified messages are silently filtered
+// - MAJOR: Added parallel blockchain detection commands for automatic onboarding
 
 mod credentials; // Added credentials module
 mod settings; // Added settings module
@@ -78,13 +79,13 @@ impl From<SettingsError> for CommandError {
 
 // Learn more about Tauri commands at https://tauri.app/develop/calling-rust/
 #[tauri::command]
-async fn connect_verus_daemon(rpc_user: String, rpc_pass: String) -> Result<u64, CommandError> {
+async fn connect_verus_daemon(rpc_user: String, rpc_pass: String, rpc_port: u16) -> Result<u64, CommandError> {
     // Ensure logging is initialized (can be done once at startup too)
     // TODO: Initialize logger properly in main/run function
     let _ = env_logger::try_init();
 
     log::info!("connect_verus_daemon command received");
-    crate::wallet_rpc::connect_and_get_block_height(rpc_user, rpc_pass) // Corrected path
+    crate::wallet_rpc::connect_and_get_block_height(rpc_user, rpc_pass, rpc_port) // Corrected path
         .await
         .map_err(CommandError::from)
 }
@@ -98,7 +99,7 @@ async fn get_login_identities(
     // Load credentials first
     let creds = crate::credentials::load_credentials(app).await?;
     // Then call the RPC function
-    crate::identity_rpc::get_login_identities(creds.rpc_user, creds.rpc_pass) // Corrected path
+    crate::identity_rpc::get_login_identities(creds.rpc_user, creds.rpc_pass, creds.rpc_port) // Corrected path
         .await
         .map_err(CommandError::from)
 }
@@ -111,7 +112,7 @@ async fn get_private_balance(
 ) -> Result<f64, CommandError> {
     log::info!("get_private_balance command received for address: {}", address);
     let creds = crate::credentials::load_credentials(app).await?;
-    crate::wallet_rpc::get_private_balance(creds.rpc_user, creds.rpc_pass, address) // Correct path
+    crate::wallet_rpc::get_private_balance(creds.rpc_user, creds.rpc_pass, creds.rpc_port, address) // Correct path
         .await
         .map_err(CommandError::from)
 }
@@ -124,7 +125,7 @@ async fn check_identity_eligibility(
 ) -> Result<FormattedIdentity, CommandError> {
     log::info!("check_identity_eligibility command received for: {}", target_identity_name);
     let creds = crate::credentials::load_credentials(app).await?;
-    crate::identity_rpc::check_identity_eligibility(creds.rpc_user, creds.rpc_pass, target_identity_name) // Corrected path
+    crate::identity_rpc::check_identity_eligibility(creds.rpc_user, creds.rpc_pass, creds.rpc_port, target_identity_name) // Corrected path
         .await
         .map_err(CommandError::from) // Uses the updated From implementation
 }
@@ -138,7 +139,7 @@ async fn get_chat_history(
 ) -> Result<Vec<ChatMessage>, CommandError> {
     log::info!("get_chat_history command received from: {} for owner: {}", target_identity_name, own_private_address);
     let creds = crate::credentials::load_credentials(app).await?;
-    crate::message_rpc::get_chat_history(creds.rpc_user, creds.rpc_pass, target_identity_name, own_private_address) // Corrected path
+    crate::message_rpc::get_chat_history(creds.rpc_user, creds.rpc_pass, creds.rpc_port, target_identity_name, own_private_address) // Corrected path
         .await
         .map_err(CommandError::from)
 }
@@ -151,7 +152,7 @@ async fn get_new_received_messages(
 ) -> Result<Vec<ChatMessage>, CommandError> {
     log::info!("get_new_received_messages command received for owner: {}", own_private_address);
     let creds = crate::credentials::load_credentials(app).await?;
-    crate::message_rpc::get_new_received_messages(creds.rpc_user, creds.rpc_pass, own_private_address) // Corrected path
+    crate::message_rpc::get_new_received_messages(creds.rpc_user, creds.rpc_pass, creds.rpc_port, own_private_address) // Corrected path
         .await
         .map_err(CommandError::from)
 }
@@ -176,6 +177,7 @@ async fn send_private_message(
     crate::message_rpc::send_private_message( // Corrected path
         creds.rpc_user,
         creds.rpc_pass,
+        creds.rpc_port,
         sender_z_address,
         recipient_z_address,
         memo_text,
@@ -195,12 +197,16 @@ pub fn run() {
 
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
+        .plugin(tauri_plugin_dialog::init())
         .plugin(store_plugin) // Register the store plugin instance
         .invoke_handler(tauri::generate_handler![
             connect_verus_daemon,
             crate::credentials::save_credentials, // Add credential commands
             crate::credentials::load_credentials,
             crate::credentials::clear_credentials,
+            crate::credentials::detect_all_blockchains, // NEW: Parallel detection
+            crate::credentials::select_folder_dialog, // NEW: Folder selection
+            crate::credentials::detect_blockchain_from_path, // NEW: Custom path detection
             get_login_identities, // Correct name used here
             get_private_balance, // Add the new balance command
             check_identity_eligibility,

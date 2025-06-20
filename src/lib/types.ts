@@ -6,11 +6,13 @@
 // - Added Conversation type, including recipient_private_address.
 // - BREAKING: Updated ChatMessage to use Unix timestamp in seconds for timestamp-based ordering.
 // - Removed sentAtBlockHeight field as block-height sorting is replaced by timestamp sorting.
+// - MAJOR: Added blockchain detection types for new automatic onboarding system
 
 // Credentials for Verus RPC connection
 export interface Credentials {
     rpc_user: string;
     rpc_pass: string;
+    rpc_port: number; // NEW: Port support for different blockchains
 }
 
 // Structure for Verus identity details returned from backend
@@ -37,7 +39,7 @@ export interface LoginPayload {
 export type AppStatus = 'loading' | 'onboarding' | 'loggedIn' | 'error';
 
 // Onboarding step names
-export type OnboardingStep = 'welcome' | 'blockchain' | 'credentials' | 'verusid'; 
+export type OnboardingStep = 'welcome' | 'blockchain' | 'verusid'; 
 
 // Type alias for the private balance
 export type PrivateBalance = number | null;
@@ -61,3 +63,22 @@ export type Conversation = {
     recipient_private_address: string; // The recipient's z-address needed for sending
     unread?: boolean;   // Optional flag for unread messages
   }; 
+
+// NEW: Blockchain detection types
+export type BlockchainStatus = 'Available' | 'Loading' | 'Error' | 'NotFound' | 'Timeout' | 'ParseError';
+
+export interface BlockchainDetectionResult {
+    blockchain_id: string;
+    blockchain_name: string;
+    status: BlockchainStatus;
+    credentials: Credentials | null;
+    config_path: string | null;
+    error_message: string | null;
+    block_height: number | null;
+}
+
+export interface ParallelDetectionResult {
+    blockchains: BlockchainDetectionResult[];
+    total_detected: number;
+    detection_duration_ms: number;
+} 

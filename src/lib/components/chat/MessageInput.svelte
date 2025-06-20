@@ -222,11 +222,11 @@
 
 </script>
 
-<div class="p-4 bg-dark-bg-secondary">
+<div class="p-4 bg-[#070A07]">
     <!-- Compact unified input container -->
     <div class="relative mb-2">
         <!-- Main input container with unified border -->
-        <div class={`relative flex items-end border rounded-md bg-dark-bg-primary ${isOverLimit ? 'border-red-600' : textareaFocused ? 'border-brand-green ring-2 ring-brand-green' : 'border-dark-border-primary'} transition-colors`}>
+        <div class={`relative flex items-end border rounded-md bg-white/5 ${isOverLimit ? 'border-red-600' : textareaFocused ? 'border-brand-green ring-2 ring-brand-green' : 'border-white/5'} transition-colors`}>
             <!-- Message textarea -->
             <textarea
                 bind:this={textareaElement}

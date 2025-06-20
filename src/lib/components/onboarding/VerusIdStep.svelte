@@ -3,6 +3,7 @@
 // Description: Handles fetching and selecting a VerusID.
 // Changes:
 // - Modified 'idSelected' event to dispatch the full FormattedIdentity object.
+// - Removed "Clear Authentication" buttons as they're no longer needed with automatic blockchain detection.
 
     import { createEventDispatcher, onMount } from 'svelte';
     import { invoke } from '@tauri-apps/api/core';
@@ -27,7 +28,6 @@
     // --- Event Dispatcher ---
     const dispatch = createEventDispatcher<{
         idSelected: { identity: FormattedIdentity | null }; // Changed event payload
-        clearAuthentication: void; // Request parent to clear auth
     }>();
 
     // --- Lifecycle ---
@@ -77,7 +77,22 @@
         } catch (error: any) {
             console.error("VerusIdStep: Failed to fetch login identities:", error);
             fetchStatus = 'error';
-            fetchError = `Error fetching identities: ${String(error)}`;
+            
+            // Better error message handling
+            let errorMessage = 'Unknown error occurred';
+            if (error && typeof error === 'object') {
+                if (error.message) {
+                    errorMessage = error.message;
+                } else if (error.error) {
+                    errorMessage = error.error;
+                } else {
+                    errorMessage = JSON.stringify(error);
+                }
+            } else {
+                errorMessage = String(error);
+            }
+            
+            fetchError = `Error fetching identities: ${errorMessage}`;
             dispatch('idSelected', { identity: null }); // Ensure parent knows none are selected on error
         }
     }
@@ -94,11 +109,6 @@
         console.log("VerusIdStep: Dispatching idSelected with:", selectedFullIdentity);
         // Dispatch the full identity object (or null if none selected)
         dispatch('idSelected', { identity: selectedFullIdentity }); 
-    }
-
-    function requestClearAuthentication() {
-        // Ask the parent component (OnboardingFlow) to handle clearing
-        dispatch('clearAuthentication');
     }
 
 </script>
@@ -125,14 +135,7 @@
     {:else if fetchStatus === 'error' && fetchError}
         <div class="mt-4 p-3 bg-red-900/40 border border-red-700/50 rounded-md text-center">
             <p class="text-sm font-medium text-red-300">Error Loading Identities</p>
-            <p class="text-xs text-red-400 mb-2">{fetchError}</p>
-            <button 
-                type="button"
-                on:click={requestClearAuthentication} 
-                class="w-full mt-2 flex justify-center py-2 px-3 border border-dark-border-primary rounded-md shadow-sm text-xs font-medium text-dark-text-primary bg-dark-bg-secondary hover:bg-dark-bg-tertiary focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-dark-bg-primary focus:ring-brand-green transition duration-150 ease-in-out"
-            >
-                 Clear Authentication & Start Over
-            </button>
+            <p class="text-xs text-red-400">{fetchError}</p>
         </div>
     {:else if fetchStatus === 'success' && loginIdentities.length > 0}
         <CustomDropdown
@@ -147,13 +150,6 @@
             <p class="text-sm font-medium text-yellow-300">No Login IDs Found</p>
             <p class="text-xs text-yellow-400">No VerusIDs with private addresses were found in your wallet.</p>
         </div>
-        <button 
-            type="button"
-            on:click={requestClearAuthentication} 
-            class="w-full mt-4 flex justify-center py-2 px-3 border border-dark-border-primary rounded-md shadow-sm text-xs font-medium text-dark-text-primary bg-dark-bg-secondary hover:bg-dark-bg-tertiary focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-dark-bg-primary focus:ring-brand-green transition duration-150 ease-in-out"
-        >
-            Clear Authentication & Start Over
-        </button>
     {/if}
 </div>
 
