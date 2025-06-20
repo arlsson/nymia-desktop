@@ -110,9 +110,19 @@
         appStatus = 'onboarding';
     }
 
-    function handleLogout() {
+    async function handleLogout() {
         console.log("Logout event received from ChatInterface.");
         console.log("Logout: storedCredentials before logout:", storedCredentials?.rpc_port);
+        
+        // Reload credentials from store to ensure we have the latest ones
+        try {
+            storedCredentials = await invoke<Credentials>('load_credentials');
+            console.log("Logout: Refreshed credentials from store:", storedCredentials?.rpc_port);
+        } catch (error) {
+            console.warn("Logout: Could not reload credentials:", error);
+            // storedCredentials remains as it was
+        }
+        
         loggedInIdentity = null;
         currentPrivateBalance = null; // Clear balance on logout
         initialOnboardingStep = 'verusid'; 

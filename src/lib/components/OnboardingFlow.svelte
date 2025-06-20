@@ -8,18 +8,17 @@
 // - Updated step navigation to include the welcome step
 // - Modified button logic to handle welcome step
 // - Added WelcomeStep component import and rendering
-// - Added image to the right panel with left side visible
-// - Added fade-in animation (fly from right) for the right panel image
-// - Moved image asset to static directory and updated path
-// - Wrapped animating image in a div with static transform to fix animation jump
+// - Added video to the right panel filling the complete panel  
+// - Video plays automatically on loop and is muted for autoplay compatibility
 // - Removed hardcoded port fallback - ports must come from credentials or be undefined
 // - MAJOR: Replaced manual blockchain + credentials steps with automatic BlockchainDetectionStep
 // - Simplified onboarding to Welcome → Detection → VerusID (3 steps instead of 4)
-// - Automatic credential saving and blockchain selection
+// - Credential saving moved to login step for better separation of concerns
+// - Fixed Continue button logic to only enable when Available blockchain is selected (not just Loading)
 
-  import { createEventDispatcher, onMount } from 'svelte';
+  import { createEventDispatcher } from 'svelte';
   import { invoke } from '@tauri-apps/api/core';
-  import { slide, fly } from 'svelte/transition';
+  import { slide } from 'svelte/transition';
   import { quintOut } from 'svelte/easing';
 
   // Import Step Components
@@ -52,9 +51,7 @@
   let selectedBlockchainId: string | null = null; // Track selected blockchain
   let detectionCompleted = false; // Track if detection step is completed
   let availableBlockchainsCount = 0; // Track how many blockchains are available
-
-  // Visibility state for right panel image animation
-  let imageVisible = false;
+  let blockchainSelected = false; // Track if an Available blockchain has been selected
 
   // --- Event Dispatcher (to parent: +page.svelte) ---
   const dispatch = createEventDispatcher<{
@@ -63,12 +60,6 @@
   }>();
 
   // --- Lifecycle & State Management ---
-  onMount(() => {
-    // Trigger image animation shortly after component mounts
-    setTimeout(() => {
-      imageVisible = true;
-    }, 300); // 300ms delay
-  });
 
   // Update internal state if initialCredentials prop changes (e.g., on logout/restart)
   $: if (initialCredentials && initialCredentials !== currentCredentials) {
@@ -80,7 +71,8 @@
   
   // Reset relevant state when moving away from detection step
   $: if (currentStep !== 'blockchain') {
-      // Keep the detection state for navigation logic
+      // Keep the detection state for navigation logic but reset selection
+      blockchainSelected = false;
   }
 
   // --- Step Navigation ---
@@ -106,6 +98,7 @@
     } else if (currentStep === 'verusid') {
       // Reset VerusID selection when going back
       selectedIdentity = null;
+      blockchainSelected = false; // Reset blockchain selection too
       goToStep('blockchain');
     }
   }
@@ -128,6 +121,7 @@
     currentCredentials = credentials;
     connectionBlockHeight = blockHeight;
     detectionCompleted = true;
+    blockchainSelected = true; // Mark that an Available blockchain has been selected
     
     console.log(`OnboardingFlow: Selected ${blockchainId} with block height ${blockHeight}`);
   }
@@ -150,11 +144,27 @@
           return;
       }
       
-      console.log(`OnboardingFlow: Login initiated for ${selectedIdentity.formatted_name} (${selectedIdentity.i_address})`);
-      dispatch('login-success', {
-         identity: selectedIdentity,
-         blockHeight: connectionBlockHeight 
-      });
+      try {
+          // Save credentials to store after successful identity selection
+          await invoke('save_credentials', {
+              rpcUser: currentCredentials.rpc_user,
+              rpcPass: currentCredentials.rpc_pass,
+              rpcPort: currentCredentials.rpc_port
+          });
+          
+          console.log(`OnboardingFlow: Login initiated for ${selectedIdentity.formatted_name} (${selectedIdentity.i_address})`);
+          dispatch('login-success', {
+             identity: selectedIdentity,
+             blockHeight: connectionBlockHeight 
+          });
+      } catch (error) {
+          console.error("OnboardingFlow: Failed to save credentials during login:", error);
+          // Could show error to user, but for now we'll still proceed with login
+          dispatch('login-success', {
+             identity: selectedIdentity,
+             blockHeight: connectionBlockHeight 
+          });
+      }
   }
 
   // --- Dynamic Button Logic ---
@@ -164,7 +174,7 @@
 
   $: isPrimaryButtonDisabled = 
       currentStep === 'welcome' ? false :
-      (currentStep === 'blockchain' && (!detectionCompleted || !currentCredentials)) ||
+      (currentStep === 'blockchain' && (!detectionCompleted || !blockchainSelected)) ||
       (currentStep === 'verusid' && !selectedIdentity); // Check the full object
 
   $: primaryButtonAction = 
@@ -248,19 +258,18 @@
         >
         </div>
      
-        <!-- App image with left portion visible -->
-        <div class="absolute inset-0 flex items-center">
-            {#if imageVisible}
-              <!-- Wrapper div to hold the final transform -->
-              <div style="transform: translateX(10%); width: 100%; height: 100%; display: flex; align-items: center;">
-                <img 
-                    src="/app-img.webp" 
-                    alt="Application preview" 
-                    class="app-image" 
-                    transition:fly={{ x: 50, duration: 1200, delay: 100, easing: quintOut }}
-                />
-              </div>
-            {/if}
+        <!-- Onboarding video filling the panel -->
+        <div class="absolute inset-0">
+            <video 
+                src="/onboarding-video.mp4" 
+                autoplay 
+                muted 
+                loop 
+                playsinline
+                class="onboarding-video"
+            >
+                Your browser does not support the video tag.
+            </video>
         </div>
          
         <div 
@@ -316,13 +325,12 @@
     background-image: radial-gradient(circle, var(--tw-gradient-from) 0%, transparent 70%);
   }
 
-  /* App image styling to show only left portion */
-  .app-image {
-    height: 80%; /* Fill the container height */
-    width: auto;
-    object-fit: cover; /* Fill container, crop if needed */
-    object-position: left center; /* Keep left edge visible, vertically centered */
-    position: relative; /* Might be optional now, but keeping for safety */
+  /* Onboarding video styling to fill the complete panel */
+  .onboarding-video {
+    width: 100%;
+    height: 100%;
+    object-fit: cover; /* Fill container, crop if needed to maintain aspect ratio */
+    object-position: center center; /* Center the video */
   }
 
   /* Other styles */

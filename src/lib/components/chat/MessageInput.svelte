@@ -36,7 +36,6 @@
   let insufficientBalanceError: boolean = false;
   let textareaElement: HTMLTextAreaElement;
   let giftInputElement: HTMLInputElement;
-  let textareaFocused: boolean = false;
 
   // --- Events ---
   const dispatch = createEventDispatcher<{ 
@@ -226,18 +225,16 @@
     <!-- Compact unified input container -->
     <div class="relative mb-2">
         <!-- Main input container with unified border -->
-        <div class={`relative flex items-end border rounded-md bg-white/5 ${isOverLimit ? 'border-red-600' : textareaFocused ? 'border-brand-green ring-2 ring-brand-green' : 'border-white/5'} transition-colors`}>
+        <div class={`relative flex items-end border rounded-md bg-white/5 ${isOverLimit ? 'border-red-600' : 'border-white/5'} transition-colors`}>
             <!-- Message textarea -->
             <textarea
                 bind:this={textareaElement}
                 bind:value={messageText}
                 on:input={handleInput}
                 on:keydown={handleKeyDown}
-                on:focus={() => textareaFocused = true}
-                on:blur={() => textareaFocused = false}
                 rows="1"
                 placeholder="Type your message..."
-                class="flex-1 py-2.5 px-4 bg-transparent text-dark-text-primary placeholder:text-white/45 resize-none focus:outline-none text-sm min-h-[44px] max-h-[120px] leading-5"
+                class="flex-1 py-[8px] px-4 bg-transparent text-dark-text-primary placeholder:text-white/45 resize-none focus:outline-none text-sm min-h-[44px] max-h-[120px] leading-snug"
                 style="font-family: 'IBM Plex Mono', monospace;"
                 disabled={showConfirmation}
             ></textarea>

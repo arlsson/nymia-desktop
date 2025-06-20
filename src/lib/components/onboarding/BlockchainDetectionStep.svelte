@@ -7,7 +7,7 @@
 // - Skeleton loading states during detection
 // - Clean list layout with Lucide icons for status indicators
 // - Manual folder selection for custom config locations
-// - Automatic credential saving for selected blockchain
+// - Passes credentials via props (saved later during login, not here)
 
     import { createEventDispatcher, onMount, onDestroy } from 'svelte';
     import { invoke } from '@tauri-apps/api/core';
@@ -96,9 +96,9 @@
         return true;
     });
 
-    // Show manual selection if detection is complete but no visible results
-    $: if (detectionState === 'completed' && filteredResults.length === 0 && detectionResults.length > 0) {
-        showManualSelection = true;
+    // Show manual selection only if detection is complete but no visible results
+    $: if (detectionState === 'completed') {
+        showManualSelection = filteredResults.length === 0 && detectionResults.length > 0;
     }
 
     // --- Detection Logic ---
@@ -194,35 +194,26 @@
     }
 
     async function selectBlockchain(blockchain: BlockchainDetectionResult) {
-        if (blockchain.status !== 'Available' || !blockchain.credentials || blockchain.block_height === null) {
-            console.error('BlockchainDetectionStep: Cannot select blockchain - not available or missing data');
+        // Only allow selection of Available blockchains with complete data
+        if (blockchain.status !== 'Available') {
+            console.error(`BlockchainDetectionStep: Cannot select blockchain - status is ${blockchain.status}, not Available`);
+            return;
+        }
+        
+        if (!blockchain.credentials || blockchain.block_height === null) {
+            console.error('BlockchainDetectionStep: Cannot select blockchain - missing credentials or block height');
             return;
         }
 
         console.log(`BlockchainDetectionStep: Blockchain selected: ${blockchain.blockchain_name}`);
         selectedBlockchainId = blockchain.blockchain_id;
 
-        try {
-            // Save credentials automatically
-            await invoke('save_credentials', {
-                rpcUser: blockchain.credentials.rpc_user,
-                rpcPass: blockchain.credentials.rpc_pass,
-                rpcPort: blockchain.credentials.rpc_port
-            });
-
-            console.log('BlockchainDetectionStep: Credentials saved successfully');
-
-            // Dispatch selection event
-            dispatch('blockchainSelected', {
-                blockchainId: blockchain.blockchain_id,
-                credentials: blockchain.credentials,
-                blockHeight: blockchain.block_height
-            });
-
-        } catch (error) {
-            console.error('BlockchainDetectionStep: Failed to save credentials:', error);
-            detectionError = 'Selected blockchain but failed to save credentials.';
-        }
+        // Dispatch selection event with credentials (will be saved after successful login)
+        dispatch('blockchainSelected', {
+            blockchainId: blockchain.blockchain_id,
+            credentials: blockchain.credentials,
+            blockHeight: blockchain.block_height
+        });
     }
 
     function getStatusColor(status: BlockchainStatus): string {
@@ -240,7 +231,7 @@
     function getStatusText(status: BlockchainStatus): string {
         switch (status) {
             case 'Available': return 'Ready to connect';
-            case 'Loading': return 'Starting up...';
+            case 'Loading': return 'Starting up - please wait...';
             case 'Error': return 'Connection failed';
             case 'Timeout': return 'Daemon not responding';
             case 'ParseError': return 'Configuration error';
