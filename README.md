@@ -1,5 +1,7 @@
 # Nymia - Decentralized Chat Application
 
+![Nymia Marketing Header](https://www.imgdumper.nl/uploads9/6856d3cbbf18b/6856d3cbbabe0-marketing-header.png)
+
 Nymia is a secure, decentralized desktop chat application that enables peer-to-peer messaging using the Verus blockchain. Unlike traditional chat applications that rely on central servers, Nymia uses blockchain technology for identity verification and message transport, giving users complete control over their data and communications.
 
 ## Key Features
