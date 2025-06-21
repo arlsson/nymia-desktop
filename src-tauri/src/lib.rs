@@ -86,17 +86,17 @@ fn set_macos_window_background(window: &tauri::WebviewWindow) {
 
     let ns_window = window.ns_window().unwrap() as id;
     unsafe {
-        // Almost black color (RGB: 20, 20, 20) - normalized to 0.0-1.0
+        // Very dark color #0a0a0a (RGB: 10, 10, 10) - normalized to 0.0-1.0
         let bg_color = NSColor::colorWithRed_green_blue_alpha_(
             nil,
-            20.0 / 255.0,   // Red: 20
-            20.0 / 255.0,   // Green: 20 
-            20.0 / 255.0,   // Blue: 20
+            10.0 / 255.0,   // Red: 10 (#0a)
+            10.0 / 255.0,   // Green: 10 (#0a)
+            10.0 / 255.0,   // Blue: 10 (#0a)
             1.0,            // Alpha: 100%
         );
         ns_window.setBackgroundColor_(bg_color);
         
-        log::info!("macOS window background set to almost black (20, 20, 20)");
+        log::info!("macOS window background set to #0a0a0a (10, 10, 10)");
     }
 }
 

@@ -71,7 +71,7 @@
   {/if}
   <button 
     type="button" 
-    class="relative w-full bg-dark-bg-tertiary border border-dark-border-secondary rounded-md shadow-sm pl-3 pr-10 py-2 text-left text-dark-text-primary cursor-default focus:outline-none focus:ring-1 focus:ring-brand-green focus:border-brand-green sm:text-sm disabled:bg-dark-bg-secondary disabled:opacity-60 disabled:cursor-not-allowed"
+    class="relative w-full bg-dark-bg-primary border border-dark-border-primary hover:border-dark-border-secondary rounded-md shadow-sm pl-3 pr-10 py-2 text-left text-dark-text-primary cursor-default focus:outline-none focus:ring-1 focus:ring-brand-green focus:border-brand-green sm:text-sm disabled:bg-dark-bg-secondary disabled:opacity-60 disabled:cursor-not-allowed"
     class:cursor-not-allowed={disabled}
     on:click={toggleDropdown}
     aria-haspopup="listbox"

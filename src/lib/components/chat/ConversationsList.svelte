@@ -50,7 +50,7 @@
   <div class="p-3 bg-dark-bg-primary">
     <button 
       on:click={handleNewChat}
-      class="w-full flex items-center justify-center py-2 px-3 bg-dark-bg-primary hover:bg-dark-bg-tertiary/80 border border-dark-border-secondary text-dark-text-primary rounded-md focus:outline-none focus:ring-2 focus:ring-brand-green focus:ring-offset-2 focus:ring-offset-dark-bg-secondary transition-all duration-150 text-sm font-medium"
+      class="w-full flex items-center justify-center py-2 px-3 bg-dark-bg-primary border border-dark-border-secondary hover:border-brand-green text-dark-text-primary rounded-md focus:outline-none focus:ring-2 focus:ring-brand-green focus:ring-offset-2 focus:ring-offset-dark-bg-secondary transition-all duration-150 text-sm font-medium"
     >
       <Plus size={16} class="mr-2 text-brand-green" />
       New Chat
@@ -75,7 +75,7 @@
             on:click={() => handleSelect(conversation.id)}
             class={`w-full text-left px-3 py-3 flex items-center transition-all duration-150 group my-1 rounded-md
             ${selectedConversationId === conversation.id ? 
-              'bg-white/10' : 
+              'bg-white/5' : 
               'hover:bg-white/5'}`}
           >
             <!-- Avatar -->
@@ -94,7 +94,7 @@
                   <span class={`text-sm font-medium truncate ${
                     selectedConversationId === conversation.id ? 
                     'text-dark-text-primary' : 
-                    'text-dark-text-secondary group-hover:text-dark-text-primary'
+                    'text-white/50 group-hover:text-dark-text-primary'
                   }`}>
                     {conversation.name}
                   </span>

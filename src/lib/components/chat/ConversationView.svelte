@@ -101,7 +101,7 @@
 <div class="flex flex-col h-full bg-dark-bg-primary">
   {#if contactName}
     <!-- Chat Header -->
-    <div class="flex items-center h-12 px-4 bg-dark-bg-secondary border-b border-dark-border-primary flex-shrink-0 shadow-sm">
+    <div class="flex items-center h-12 px-4 bg-dark-bg-primary border-b border-dark-border-primary flex-shrink-0 shadow-sm">
       <Avatar userId={contactName} size="small" showHover={false} />
       <span class="font-semibold text-dark-text-primary ml-3 truncate">{contactName}</span>
     </div>
@@ -240,7 +240,7 @@
     </div>
 
     <!-- Message Input Area -->
-    <div class="flex-shrink-0 bg-dark-bg-secondary border-t border-dark-border-primary">
+    <div class="flex-shrink-0 bg-dark-bg-secondary">
       <MessageInput 
         {privateBalance}  
         {isTransactionPending}

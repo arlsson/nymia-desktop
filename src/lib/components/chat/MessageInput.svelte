@@ -15,11 +15,13 @@
 // - Added verusIdName prop and integrated with messageLimit utility function
 // - BUG FIX: Fixed gift overlay cancel button to properly clear amount instead of just hiding overlay
 // - Added dynamic currency symbol support based on selected blockchain
+// - REFACTOR: Extracted gift overlay into separate GiftOverlay component for better code organization
 
   import { createEventDispatcher } from 'svelte';
-  import { Send, DollarSign, Gift, X, Check, AlertTriangle } from 'lucide-svelte';
+  import { Send, Gift, X, Check } from 'lucide-svelte';
   import type { PrivateBalance } from '$lib/types'; // Import PrivateBalance
   import { calculateMaxMessageLength } from '$lib/utils/messageLimit';
+  import GiftOverlay from './GiftOverlay.svelte';
 
   // --- Constants ---
   const TX_FEE = 0.0001;
@@ -35,9 +37,7 @@
   let showFundsInput: boolean = false; // State to control fund input visibility
   let amountToSend: number | null = null;
   let showConfirmation: boolean = false;
-  let insufficientBalanceError: boolean = false;
   let textareaElement: HTMLTextAreaElement;
-  let giftInputElement: HTMLInputElement;
 
   // --- Events ---
   const dispatch = createEventDispatcher<{ 
@@ -100,42 +100,17 @@
     }
   }
 
-  function handleGiftInputKeyDown(event: KeyboardEvent) {
-    // Close gift overlay on Enter
-    if (event.key === 'Enter' && !insufficientBalanceError) {
-      event.preventDefault();
-      confirmGiftAmount();
-    }
-    
-    // Close gift input on Escape
-    if (event.key === 'Escape') {
-      event.preventDefault();
-      toggleFundsInput();
-    }
-    
-    // Stop event propagation to prevent triggering main input handlers
-    event.stopPropagation();
-  }
-
   function toggleFundsInput() {
       showFundsInput = !showFundsInput;
       if (!showFundsInput) {
           // Don't clear amount when hiding - keep it for display
-      } else {
-        // Focus the gift input when overlay opens
-        setTimeout(() => {
-          if (giftInputElement) {
-            giftInputElement.focus();
-          }
-        }, 50);
       }
   }
 
-  function confirmGiftAmount() {
-    if (amountToSend && amountToSend > 0 && !insufficientBalanceError) {
-      showFundsInput = false;
-      // Amount stays in amountToSend for display next to icon
-    }
+  function confirmGiftAmount(event: CustomEvent<{ amount: number }>) {
+    const { amount } = event.detail;
+    amountToSend = amount;
+    showFundsInput = false;
   }
 
   function clearGiftAmount() {
@@ -154,13 +129,6 @@
       textareaElement.style.height = 'auto';
       textareaElement.style.height = Math.min(textareaElement.scrollHeight, 120) + 'px';
     }
-  }
-
-  // Check if amount exceeds balance
-  $: if (amountToSend !== null && privateBalance !== null) {
-    insufficientBalanceError = amountToSend > (privateBalance - TX_FEE);
-  } else {
-    insufficientBalanceError = false;
   }
 
   // Calculate dynamic message limit and status
@@ -261,70 +229,26 @@
                     </button>
                     
                     <!-- Gift amount overlay -->
-                    {#if showFundsInput}
-                        <div class="absolute bottom-full right-0 mb-2 bg-dark-bg-tertiary border border-dark-border-secondary rounded-lg shadow-lg p-3 min-w-[200px] z-20">
-                            <!-- Arrow pointing down to gift icon -->
-                            <div class="absolute top-full right-3 w-0 h-0 border-l-4 border-r-4 border-t-4 border-l-transparent border-r-transparent border-t-dark-border-secondary"></div>
-                            
-                            <div class="text-xs font-medium text-dark-text-primary mb-2">Gift Amount</div>
-                            
-                            <div class="relative mb-3">
-                                <input 
-                                    type="number" 
-                                    step="any" 
-                                    min="0" 
-                                    inputmode="decimal"
-                                    bind:value={amountToSend} 
-                                    placeholder="0.0000" 
-                                    class={`w-full py-2 px-3 border rounded text-sm focus:outline-none focus:ring-1 pr-12 bg-dark-bg-primary text-dark-text-primary placeholder-dark-text-disabled ${insufficientBalanceError ? 'border-red-600 focus:ring-red-500 focus:border-red-500' : 'border-dark-border-secondary focus:ring-brand-green focus:border-brand-green'}`}
-                                    disabled={showConfirmation}
-                                    bind:this={giftInputElement}
-                                    on:keydown={handleGiftInputKeyDown}
-                                />
-                                <div class="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-dark-text-secondary font-medium">
-                                    {currencySymbol}
-                                </div>
-                            </div>
-                            
-                            <!-- Error message inside overlay -->
-                            {#if insufficientBalanceError}
-                                <div class="mb-3 text-xs text-red-400 flex items-start">
-                                    <AlertTriangle size={12} class="mr-1 mt-0.5 shrink-0"/>
-                                    <span>Insufficient balance. Max: {(privateBalance !== null ? (privateBalance - TX_FEE) : 0).toFixed(4)} {currencySymbol}</span>
-                                </div>
-                            {/if}
-                            
-                            <div class="mb-3 text-xs text-dark-text-disabled">
-                                Fee: 0.0001 {currencySymbol}
-                            </div>
-                            
-                            <!-- Confirm/Cancel buttons -->
-                            <div class="flex justify-end space-x-2">
-                                <button 
-                                    on:click={clearGiftAmount}
-                                    class="px-2 py-1 text-xs text-dark-text-secondary hover:text-dark-text-primary transition-colors"
-                                >
-                                    Cancel
-                                </button>
-                                <button 
-                                    on:click={confirmGiftAmount}
-                                    disabled={!amountToSend || amountToSend <= 0 || insufficientBalanceError}
-                                    class="px-3 py-1 bg-purple-500 hover:bg-purple-600 disabled:bg-gray-600 disabled:opacity-50 text-white text-xs rounded transition-colors font-medium"
-                                >
-                                    Confirm
-                                </button>
-                            </div>
-                        </div>
-                    {/if}
+                    <GiftOverlay
+                        show={showFundsInput}
+                        bind:amountToSend
+                        {privateBalance}
+                        {currencySymbol}
+                        {showConfirmation}
+                        on:confirm={confirmGiftAmount}
+                        on:cancel={toggleFundsInput}
+                        on:clear={clearGiftAmount}
+                    />
                 </div>
                 
                 <!-- Show confirmed gift amount badge in normal flow -->
                 {#if amountToSend && amountToSend > 0 && !showFundsInput}
-                    <div class="bg-purple-500 text-white text-xs px-1.5 py-0.5 rounded-full font-medium flex items-center shadow-lg whitespace-nowrap">
+                    <div class="bg-gradient-to-r from-purple-500 via-blue-500 to-pink-500 text-white text-xs px-2 py-1 rounded-full font-medium flex items-center shadow-lg whitespace-nowrap">
+                        <Gift size={12} class="mr-1" />
                         <span>{amountToSend}</span>
                         <button 
                             on:click={clearGiftAmount}
-                            class="ml-1 hover:bg-purple-600 rounded-full p-0.5 transition-colors"
+                            class="ml-1 hover:bg-black hover:bg-opacity-20 rounded-full p-0.5 transition-colors"
                             title="Remove gift"
                         >
                             <X size={10} />

@@ -264,7 +264,7 @@
         <!-- Onboarding video filling the panel -->
         <div class="absolute inset-0">
             <video 
-                src="/onboarding-video.mp4" 
+                src="/onboarding-1.mp4" 
                 autoplay 
                 muted 
                 loop 
@@ -275,14 +275,7 @@
             </video>
         </div>
          
-        <div 
-            class="absolute bottom-1/4 right-0 w-full h-full bg-gradient-radial from-black to-transparent opacity-10 rounded-full filter blur-3xl animate-float-slow"
-            style="--float-delay: 15s; --float-duration: 28s; --float-x: -35px; --float-y: -45px; --float-x2: -55px; --float-y2: 25px; --float-x3: 40px; --float-y3: 50px;"
-        ></div>
-        <div 
-            class="absolute top-1/4 left-1/4 w-[120%] h-[120%] bg-gradient-radial from-white to-transparent opacity-25 rounded-full filter blur-3xl animate-float-slow"
-            style="--float-delay: 5s; --float-duration: 35s; --float-x: 45px; --float-y: -40px; --float-x2: 60px; --float-y2: 35px; --float-x3: -30px; --float-y3: -50px;"
-        ></div>
+        
    </div>
 </div>
 
