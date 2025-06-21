@@ -16,14 +16,16 @@
 // - Fixed UX: Removed cursor-pointer from message containers to prevent false clickable affordance
 // - Added verusIdName prop to pass current user's identity name to MessageInput for dynamic character limits
 // - Added dynamic currency symbol support based on selected blockchain
+// - Added "100% Private" link with lock icon in chat header that opens PrivacyInfoModal
 
   import { createEventDispatcher, tick } from 'svelte';
   import MessageInput from './MessageInput.svelte';
   import Avatar from '../Avatar.svelte';
+  import PrivacyInfoModal from '../onboarding/PrivacyInfoModal.svelte';
   import type { ChatMessage, PrivateBalance } from '$lib/types';
   import { groupMessages, formatMessageTime } from '$lib/utils/messageGrouping';
   import type { MessageGroup } from '$lib/utils/messageGrouping';
-  import { Gift, Copy } from 'lucide-svelte';
+  import { Gift, Copy, Lock } from 'lucide-svelte';
 
   // --- Props ---
   export let contactName: string | null = null;
@@ -37,6 +39,7 @@
   let chatContainer: HTMLElement;
   let hoveredMessageId: string | null = null;
   let copiedMessageId: string | null = null;
+  let showPrivacyModal = false;
 
   // --- Events ---
   const dispatch = createEventDispatcher<{ 
@@ -65,6 +68,14 @@
 
   function handleMessageHover(messageId: string | null) {
     hoveredMessageId = messageId;
+  }
+
+  function handleShowPrivacyInfo() {
+    showPrivacyModal = true;
+  }
+
+  function handleClosePrivacyModal() {
+    showPrivacyModal = false;
   }
 
   // Copy message text to clipboard
@@ -101,9 +112,21 @@
 <div class="flex flex-col h-full bg-dark-bg-primary">
   {#if contactName}
     <!-- Chat Header -->
-    <div class="flex items-center h-12 px-4 bg-dark-bg-primary border-b border-dark-border-primary flex-shrink-0 shadow-sm">
-      <Avatar userId={contactName} size="small" showHover={false} />
-      <span class="font-semibold text-dark-text-primary ml-3 truncate">{contactName}</span>
+    <div class="flex items-center justify-between h-12 px-4 bg-dark-bg-primary border-b border-dark-border-primary flex-shrink-0 shadow-sm">
+      <!-- Left: Avatar + Contact Name -->
+      <div class="flex items-center min-w-0 flex-1">
+        <Avatar userId={contactName} size="small" showHover={false} />
+        <span class="font-semibold text-dark-text-primary ml-3 truncate">{contactName}</span>
+      </div>
+      
+      <!-- Right: Privacy Link -->
+      <button 
+        class="flex items-center text-xs text-white/60 hover:text-dark-text-primary cursor-pointer"
+        on:click={handleShowPrivacyInfo}
+      >
+        <Lock size={15} class="mr-1" />
+        100% Private
+      </button>
     </div>
 
     <!-- Message List (Scrollable) -->
@@ -263,6 +286,11 @@
     </div>
   {/if}
 </div>
+
+<!-- Privacy Info Modal -->
+{#if showPrivacyModal}
+  <PrivacyInfoModal on:close={handleClosePrivacyModal} />
+{/if}
 
 <style>
   /* Custom scrollbar for dark theme */

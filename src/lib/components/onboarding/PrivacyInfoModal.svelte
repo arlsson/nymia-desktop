@@ -1,3 +1,6 @@
+
+
+<script lang="ts">
 // Component: src/lib/components/onboarding/PrivacyInfoModal.svelte
 // Description: Modal popup that explains Nymia's privacy features
 // Displays detailed information about zero-knowledge cryptography, decentralization, and user control
@@ -6,7 +9,6 @@
 // - Prevents background scrolling when modal is open
 // - Moved "Got it" button inline with content instead of separate footer section
 
-<script lang="ts">
   import { createEventDispatcher, onMount, onDestroy } from 'svelte';
   import { fade, scale } from 'svelte/transition';
   import { quintOut } from 'svelte/easing';
