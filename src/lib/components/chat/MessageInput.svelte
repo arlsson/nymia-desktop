@@ -272,11 +272,6 @@
         </div>
     </div>
     
-    <!-- Information text -->
-    <div class="text-xs text-left text-white/60">
-        Messages and gifts cost 0.0001 {currencySymbol}, are end-to-end encrypted and invisible to outsiders.
-    </div>
-    
     <!-- Confirmation Dialog -->
     {#if showConfirmation}
         <div class="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50 backdrop-blur-sm" on:keydown={handleKeyDown} role="dialog" aria-modal="true" aria-labelledby="confirmation-title" tabindex="-1">

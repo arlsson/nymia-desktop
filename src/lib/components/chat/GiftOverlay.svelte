@@ -110,9 +110,9 @@
       </div>
     {/if}
     
-    <div class="mb-3 text-xs text-dark-text-secondary">
+    <div class="mb-6 text-xs text-dark-text-secondary">
       <span class="text-white/60 mr-1">Available:</span>
-      <span class={`font-medium ${privateBalance !== null ? 'text-white' : 'text-dark-text-disabled'}`}>
+      <span class={`font-medium font-mono ${privateBalance !== null ? 'text-white' : 'text-dark-text-disabled'}`}>
         {privateBalance !== null ? `${privateBalance.toFixed(4)} ${currencySymbol}` : 'Loading...'}
       </span>
     </div>
@@ -121,7 +121,7 @@
     <div class="flex justify-end space-x-2">
       <button 
         on:click={handleClear}
-        class="px-2 py-1 text-dark-text-secondary hover:text-dark-text-primary transition-colors"
+        class="px-2 py-1 text-dark-text-secondary text-xs hover:text-dark-text-primary transition-colors"
       >
         Cancel
       </button>

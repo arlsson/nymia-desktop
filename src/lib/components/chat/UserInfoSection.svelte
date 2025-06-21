@@ -9,6 +9,7 @@
 // - Fixed positioning at bottom of sidebar
 // - Added dynamic currency symbol support based on selected blockchain
 // - Updated background color to specific hex color #121214
+// - Improved private balance display with better layout and monospace font
 
   import { createEventDispatcher } from 'svelte';
   import { LogOut, Settings, Layers, Loader } from 'lucide-svelte';
@@ -74,22 +75,24 @@
     </div>
   </div>
 
-  <!-- Row 2: Balance -->
-  <div class="flex items-center text-xs text-dark-text-secondary mb-1">
-    <span class="text-white/60 mr-1">Balance:</span> 
-    <span class={`font-medium ${privateBalance !== null ? 'text-brand-green' : 'text-dark-text-disabled'}`}>
-      {formattedBalance}
-    </span>
-    {#if isTransactionPending}
-      <div class="animate-spin text-brand-green ml-2" title="Waiting for transaction confirmation">
-        <Loader size={12} />
-      </div>
-    {/if}
+  <!-- Row 2: Private Balance -->
+  <div class="flex items-center justify-between text-xs mb-2">
+    <span class="text-dark-text-secondary">Private Balance</span>
+    <div class="flex items-center">
+      <span class={`font-mono font-medium ${privateBalance !== null ? 'text-white' : 'text-dark-text-disabled'}`}>
+        {formattedBalance}
+      </span>
+      {#if isTransactionPending}
+        <div class="animate-spin text-brand-green ml-2" title="Waiting for transaction confirmation">
+          <Loader size={12} />
+        </div>
+      {/if}
+    </div>
   </div>
 
   <!-- Row 3: Block Height (Subtle) -->
   {#if blockHeight !== null}
-    <div class="flex items-center text-xs text-dark-text-disabled">
+    <div class="flex items-center text-xs text-white/45">
       <Layers size={10} class="mr-1" />
       <span>Block #{blockHeight}</span>
     </div>
