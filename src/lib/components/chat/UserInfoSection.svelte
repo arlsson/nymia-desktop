@@ -59,7 +59,7 @@
       <button 
         on:click={handleSettings} 
         title="Settings"
-        class="p-1.5 rounded-md text-white/50 hover:text-dark-text-primary focus:outline-none focus:ring-1 focus:ring-brand-green transition-all duration-150"
+        class="p-1.5 rounded-md text-white/50 hover:text-dark-text-primary focus:outline-none focus:ring-1 focus:ring-brand-green"
       >
         <Settings size={16} />
       </button>
@@ -67,7 +67,7 @@
       <button 
         on:click={handleLogout} 
         title="Log Out"
-        class="p-1.5 rounded-md text-white/50 hover:text-dark-text-primary focus:outline-none focus:ring-1 focus:ring-brand-green transition-all duration-150"
+        class="p-1.5 rounded-md text-white/50 hover:text-dark-text-primary focus:outline-none focus:ring-1 focus:ring-brand-green"
       >
         <LogOut size={16} />
       </button>

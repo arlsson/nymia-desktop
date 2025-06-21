@@ -249,7 +249,7 @@
                         <span class="font-mono tracking-wide">{amountToSend} {currencySymbol}</span>
                         <button 
                             on:click={clearGiftAmount}
-                            class="ml-2 hover:bg-purple-700 rounded-sm p-0.5 transition-colors"
+                            class="ml-2 hover:bg-purple-700 rounded-sm p-0.5"
                             title="Remove gift"
                         >
                             <X size={12} stroke-width="2.5" class="text-purple-200 hover:text-white" />
