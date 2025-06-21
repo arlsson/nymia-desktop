@@ -22,6 +22,7 @@
   import { slide } from 'svelte/transition';
   import { quintOut } from 'svelte/easing';
   import { ExternalLink } from 'lucide-svelte';
+  import { PUBLIC_X_URL } from '$env/static/public';
 
   // Import Step Components
   import WelcomeStep from './onboarding/WelcomeStep.svelte';
@@ -230,7 +231,7 @@
           <div class="flex justify-between items-center">
               <!-- Left Side: Social Link -->
               <a 
-                  href="https://x.com/NymiaApp" 
+                  href={PUBLIC_X_URL} 
                   target="_blank" 
                   rel="noopener noreferrer"
                   class="flex items-center py-2 px-2 text-xs text-white/50 hover:text-white/90 group"
