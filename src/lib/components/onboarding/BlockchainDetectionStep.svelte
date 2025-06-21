@@ -224,7 +224,7 @@
             case 'Available': 
                 return isSelected 
                     ? 'border-brand-green bg-brand-green/10 hover:bg-brand-green/20' 
-                    : 'border-dark-border-primary bg-dark-bg-secondary hover:bg-dark-bg-tertiary hover:border-brand-green/40';
+                    : 'border-dark-border-primary bg-dark-bg-primary hover:bg-dark-bg-secondary hover:border-brand-green/40';
             case 'Loading': return 'border-blue-500/40 bg-blue-800/20';
             case 'Error': return 'border-red-600/40 bg-red-800/20';
             case 'Timeout': return 'border-yellow-600/40 bg-yellow-800/20';
@@ -340,14 +340,10 @@
                                 {/if}
                             </div>
                             
-                            <!-- Selection Indicator -->
+                            <!-- Selection Indicator (only for non-Available statuses) -->
                             <div class="flex-shrink-0">
-                                {#if blockchain.status === 'Available'}
-                                    {#if blockchain.blockchain_id === selectedBlockchainId}
-                                        <CheckCircle class="w-5 h-5 text-brand-green" />
-                                    {:else}
-                                        <ChevronRight class="w-5 h-5 text-dark-text-tertiary" />
-                                    {/if}
+                                {#if blockchain.status !== 'Available'}
+                                    <!-- Could add indicators for other statuses if needed -->
                                 {/if}
                             </div>
                         </div>

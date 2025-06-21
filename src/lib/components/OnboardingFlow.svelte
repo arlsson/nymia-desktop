@@ -15,11 +15,13 @@
 // - Simplified onboarding to Welcome → Detection → VerusID (3 steps instead of 4)
 // - Credential saving moved to login step for better separation of concerns
 // - Fixed Continue button logic to only enable when Available blockchain is selected (not just Loading)
+// - Added "Follow on X for updates" social link on the left side of the bottom button bar
 
   import { createEventDispatcher } from 'svelte';
   import { invoke } from '@tauri-apps/api/core';
   import { slide } from 'svelte/transition';
   import { quintOut } from 'svelte/easing';
+  import { ExternalLink } from 'lucide-svelte';
 
   // Import Step Components
   import WelcomeStep from './onboarding/WelcomeStep.svelte';
@@ -224,30 +226,47 @@
       </div>
 
       <!-- Bottom Button Bar -->
-      <div class="px-10 py-4 border-t border-dark-border-primary bg-dark-bg-primary mt-auto">
-          <div class="flex justify-end space-x-3">
-               <!-- Back Button (Conditional) -->
-              {#if currentStep !== 'welcome'}
-                <button 
+      <div class="pr-10 pl-4 py-4 border-t border-dark-border-primary bg-dark-bg-primary mt-auto">
+          <div class="flex justify-between items-center">
+              <!-- Left Side: Social Link -->
+              <a 
+                  href="https://x.com/NymiaApp" 
+                  target="_blank" 
+                  rel="noopener noreferrer"
+                  class="flex items-center py-2 px-2 text-xs text-white/50 hover:text-white/90 group"
+              >
+                  <!-- X Icon (simplified SVG since Lucide doesn't have Twitter/X) -->
+                  <svg class="w-5 h-5 mr-2 group-hover:text-dark-text-primary" fill="currentColor" viewBox="0 0 24 24">
+                      <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/>
+                  </svg>
+                  Follow for updates
+                  
+              </a>
+
+              <!-- Right Side: Navigation Buttons -->
+              <div class="flex space-x-3">
+                   <!-- Back Button (Conditional) -->
+                  {#if currentStep !== 'welcome'}
+                    <button 
+                        type="button"
+                        on:click={prevStep} 
+                        class="py-2 px-3 border border-dark-border-primary rounded-md shadow-sm text-xs font-medium text-dark-text-primary bg-dark-bg-secondary hover:bg-dark-bg-tertiary focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-brand-green transition duration-150 ease-in-out"
+                    >
+                         Back
+                    </button>
+                  {/if}
+
+                 <!-- Primary Action Button -->
+                  <button 
                     type="button"
-                    on:click={prevStep} 
-                    class="py-2 px-3 border border-dark-border-primary rounded-md shadow-sm text-xs font-medium text-dark-text-primary bg-dark-bg-secondary hover:bg-dark-bg-tertiary focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-brand-green transition duration-150 ease-in-out"
-                >
-                     Back
+                    on:click={primaryButtonAction} 
+                    disabled={isPrimaryButtonDisabled} 
+                    class={`py-2 px-3 border border-transparent rounded-md shadow-sm text-xs font-medium text-white focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-brand-green disabled:opacity-60 disabled:cursor-not-allowed transition duration-150 ease-in-out ${!isPrimaryButtonDisabled ? 'hover:bg-brand-green-hover' : ''}`}
+                    style={`background-color: ${isPrimaryButtonDisabled ? '#9fcfb8' : '#419A6A'};`} 
+                 >
+                    {primaryButtonLabel}
                 </button>
-              {/if}
-
-             <!-- Primary Action Button -->
-              <button 
-                type="button"
-                on:click={primaryButtonAction} 
-                disabled={isPrimaryButtonDisabled} 
-                class={`py-2 px-3 border border-transparent rounded-md shadow-sm text-xs font-medium text-white focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-brand-green disabled:opacity-60 disabled:cursor-not-allowed transition duration-150 ease-in-out ${!isPrimaryButtonDisabled ? 'hover:bg-brand-green-hover' : ''}`}
-                style={`background-color: ${isPrimaryButtonDisabled ? '#9fcfb8' : '#419A6A'};`} 
-             >
-                {primaryButtonLabel}
-            </button>
-
+              </div>
           </div>
       </div>
   </div>

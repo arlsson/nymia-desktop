@@ -664,7 +664,7 @@
 
 <div class="flex h-screen font-sans text-sm">
   <!-- Left Sidebar -->
-  <div class="w-[25%] max-w-[300px] min-w-[200px] flex-shrink-0 bg-dark-bg-secondary border-r border-dark-border-primary flex flex-col shadow-sm">
+  <div class="w-[25%] max-w-[300px] min-w-[200px] flex-shrink-0 bg-dark-bg-secondary flex flex-col shadow-sm">
     <!-- Conversations List (scrollable) -->
     <div class="flex-grow overflow-hidden">
       <ConversationsList 

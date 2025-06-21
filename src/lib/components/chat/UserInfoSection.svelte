@@ -8,6 +8,7 @@
 // - Balance and block height on separate lines
 // - Fixed positioning at bottom of sidebar
 // - Added dynamic currency symbol support based on selected blockchain
+// - Updated background color to specific hex color #121214
 
   import { createEventDispatcher } from 'svelte';
   import { LogOut, Settings, Layers, Loader } from 'lucide-svelte';
@@ -40,7 +41,7 @@
 
 </script>
 
-<div class="bg-dark-bg-primary border-t border-dark-border-primary p-3 flex-shrink-0">
+<div class="border-t border-dark-border-primary p-3 flex-shrink-0" style="background-color: #121214">
   <!-- Row 1: Avatar + Name + Action Buttons -->
   <div class="flex items-center justify-between mb-2">
     <!-- Left: Avatar + Name -->

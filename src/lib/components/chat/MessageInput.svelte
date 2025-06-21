@@ -16,6 +16,7 @@
 // - BUG FIX: Fixed gift overlay cancel button to properly clear amount instead of just hiding overlay
 // - Added dynamic currency symbol support based on selected blockchain
 // - REFACTOR: Extracted gift overlay into separate GiftOverlay component for better code organization
+// - UI IMPROVEMENT: Redesigned gift amount badge with better contrast, standard styling, and improved readability
 
   import { createEventDispatcher } from 'svelte';
   import { Send, Gift, X, Check } from 'lucide-svelte';
@@ -195,7 +196,7 @@
     <!-- Compact unified input container -->
     <div class="relative mb-2">
         <!-- Main input container with unified border -->
-        <div class={`relative flex items-end border rounded-md bg-white/5 ${isOverLimit ? 'border-red-600' : 'border-white/5'} transition-colors`}>
+        <div class={`relative flex items-end border rounded-md bg-[#121214] ${isOverLimit ? 'border-red-600' : 'border-white/5'} transition-colors`}>
             <!-- Message textarea -->
             <textarea
                 bind:this={textareaElement}
@@ -243,15 +244,15 @@
                 
                 <!-- Show confirmed gift amount badge in normal flow -->
                 {#if amountToSend && amountToSend > 0 && !showFundsInput}
-                    <div class="bg-gradient-to-r from-purple-500 via-blue-500 to-pink-500 text-white text-xs px-2 py-1 rounded-full font-medium flex items-center shadow-lg whitespace-nowrap">
-                        <Gift size={12} class="mr-1" />
-                        <span>{amountToSend}</span>
+                    <div class="bg-purple-600 border border-purple-500 text-white text-xs px-2.5 py-1.5 rounded-md font-medium flex items-center shadow-sm whitespace-nowrap gift-amount-badge">
+                        
+                        <span class="font-mono tracking-wide">{amountToSend} {currencySymbol}</span>
                         <button 
                             on:click={clearGiftAmount}
-                            class="ml-1 hover:bg-black hover:bg-opacity-20 rounded-full p-0.5 transition-colors"
+                            class="ml-2 hover:bg-purple-700 rounded-sm p-0.5 transition-colors"
                             title="Remove gift"
                         >
-                            <X size={10} />
+                            <X size={12} stroke-width="2.5" class="text-purple-200 hover:text-white" />
                         </button>
                     </div>
                 {/if}
@@ -424,6 +425,14 @@
             background-position: 0% 50%;
         }
     }
+    
+    /* Gift amount badge styling */
+    .gift-amount-badge {
+        backdrop-filter: blur(8px);
+        transition: all 0.2s ease;
+    }
+    
+   
     
     /* Remove number input spinners */
     input[type="number"]::-webkit-outer-spin-button,

@@ -12,6 +12,7 @@
 // - Updated to darker background throughout (bg-dark-bg-primary)
 // - Removed border divider between New Chat button and conversation list
 // - Fixed horizontal scrolling issue by removing horizontal margins
+// - Updated background color to specific hex color #121214
 
   import { createEventDispatcher } from 'svelte';
   import { Plus } from 'lucide-svelte';
@@ -45,12 +46,13 @@
 
 </script>
 
-<div class="flex flex-col h-full bg-dark-bg-primary">
+<div class="flex flex-col h-full" style="background-color: #121214">
   <!-- Header/New Chat Button -->
-  <div class="p-3 bg-dark-bg-primary">
+  <div class="p-3" style="background-color: #121214">
     <button 
       on:click={handleNewChat}
-      class="w-full flex items-center justify-center py-2 px-3 bg-dark-bg-primary border border-dark-border-secondary hover:border-brand-green text-dark-text-primary rounded-md focus:outline-none focus:ring-2 focus:ring-brand-green focus:ring-offset-2 focus:ring-offset-dark-bg-secondary transition-all duration-150 text-sm font-medium"
+      class="w-full flex items-center justify-center py-2 px-3 border border-dark-border-secondary hover:border-brand-green text-dark-text-primary rounded-md focus:outline-none focus:ring-2 focus:ring-brand-green focus:ring-offset-2 focus:ring-offset-dark-bg-secondary transition-all duration-150 text-sm font-medium"
+      style="background-color: #121214"
     >
       <Plus size={16} class="mr-2 text-brand-green" />
       New Chat
@@ -58,7 +60,7 @@
   </div>
 
   <!-- Conversation List (Scrollable) -->
-  <div class="flex-grow overflow-y-auto bg-dark-bg-primary px-1.5">
+  <div class="flex-grow overflow-y-auto px-1.5" style="background-color: #121214">
     {#if conversations.length === 0}
         <div class="flex items-center justify-center h-full p-6">
             <div class="text-center">

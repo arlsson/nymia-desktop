@@ -164,7 +164,7 @@
                             <!-- Enhanced Gift Display (Received) -->
                             <div class="gift-notification-container relative overflow-hidden rounded-lg p-0.5 max-w-sm">
                               <div class="absolute inset-0 bg-gradient-to-r from-purple-500 via-blue-500 via-teal-400 via-yellow-400 to-orange-500 gift-pulse"></div>
-                              <div class="flex items-center rounded-lg bg-dark-bg-tertiary bg-opacity-95 backdrop-blur-sm p-3 relative">
+                              <div class="flex items-center rounded-lg bg-dark-bg-secondary p-3 relative">
                                 <div class="flex items-center">
                                   <div class="p-2 bg-gradient-to-br from-indigo-500 via-purple-500 to-pink-500 rounded-full mr-3 text-white gift-icon-pulse">
                                     <Gift size={20} />
