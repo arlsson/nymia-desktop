@@ -2,7 +2,7 @@
 
 ![Nymia Marketing Header](https://www.imgdumper.nl/uploads9/6856d3cbbf18b/6856d3cbbabe0-marketing-header.png)
 
-Nymia is a secure, decentralized desktop chat application that enables peer-to-peer messaging using the Verus blockchain (including all other PBaaS-chain such as CHIPS, vDEX, vARRR). Unlike traditional chat applications that rely on central servers, Nymia uses blockchain technology for identity verification and message transport, giving users complete control over their data and communications.
+Nymia is a secure, decentralized desktop chat application that enables peer-to-peer messaging using the Verus blockchain (including all other PBaaS-chains such as CHIPS, vDEX, vARRR). Unlike traditional chat applications that rely on central servers, Nymia uses blockchain technology for identity verification and message transport, giving users complete control over their data and communications.
 
 ## Key Features
 
