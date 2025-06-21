@@ -9,15 +9,20 @@
 // - Added smooth entrance animations using Svelte transitions.
 // - Enhanced icon animation for smoother motion.
 // - Moved image assets to static directory and updated paths
+// - Made welcome text non-selectable with default cursor for native desktop app feel
+// - Integrated privacy info link naturally into welcome message as "learn why" text
 
 import { createEventDispatcher, onMount } from 'svelte';
 import { fade, fly } from 'svelte/transition';
 import { quintOut } from 'svelte/easing';
 
 // --- Event Dispatcher ---
-// Although not used in this static welcome step, kept for consistency with previous versions
-// and potential future use (e.g., animating entry before enabling 'Get Started').
-const dispatch = createEventDispatcher<{ getStarted: void }>();
+// Dispatches getStarted event when user clicks the main button
+// and showPrivacyInfo event when user clicks the privacy info link
+const dispatch = createEventDispatcher<{ 
+  getStarted: void;
+  showPrivacyInfo: void;
+}>();
 
 // Control element visibility for animations
 let visible = false;
@@ -57,12 +62,21 @@ onMount(() => {
 
   {#if visible}
     <!-- Welcome Text -->
-    <p 
-      class="text-sm text-dark-text-primary tracking-tight"
+    <div 
+      class="text-sm text-dark-text-primary tracking-tight select-none cursor-default"
       transition:fade={{ duration: 800, delay: 700 }}
     >
-      Welcome, full&#8209;node runner. Your privacy starts now.
-    </p>
+      <p class="mb-1">Welcome, full&#8209;node runner.</p>
+      <p>
+        Your privacy starts now — 
+        <button 
+          class="text-dark-text-secondary hover:text-dark-text-primary cursor-pointer"
+          on:click={() => dispatch('showPrivacyInfo')}
+        >
+          learn why.
+        </button>
+      </p>
+    </div>
   {/if}
 </div>
 

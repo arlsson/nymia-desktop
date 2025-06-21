@@ -16,6 +16,7 @@
 // - Credential saving moved to login step for better separation of concerns
 // - Fixed Continue button logic to only enable when Available blockchain is selected (not just Loading)
 // - Added "Follow on X for updates" social link on the left side of the bottom button bar
+// - Added PrivacyInfoModal component and handling for privacy info display from WelcomeStep
 
   import { createEventDispatcher } from 'svelte';
   import { invoke } from '@tauri-apps/api/core';
@@ -27,6 +28,7 @@
   import WelcomeStep from './onboarding/WelcomeStep.svelte';
   import BlockchainDetectionStep from './onboarding/BlockchainDetectionStep.svelte';
   import VerusIdStep from './onboarding/VerusIdStep.svelte';
+  import PrivacyInfoModal from './onboarding/PrivacyInfoModal.svelte';
 
   // Import Shared Types
   import type { 
@@ -54,6 +56,7 @@
   let detectionCompleted = false; // Track if detection step is completed
   let availableBlockchainsCount = 0; // Track how many blockchains are available
   let blockchainSelected = false; // Track if an Available blockchain has been selected
+  let showPrivacyModal = false; // Control privacy info modal visibility
 
   // --- Event Dispatcher (to parent: +page.svelte) ---
   const dispatch = createEventDispatcher<{
@@ -109,6 +112,14 @@
   // --- Event Handlers from Step Components ---
   function handleGetStarted() {
     goToStep('blockchain');
+  }
+
+  function handleShowPrivacyInfo() {
+    showPrivacyModal = true;
+  }
+
+  function handleClosePrivacyModal() {
+    showPrivacyModal = false;
   }
 
   function handleBlockchainSelected(event: CustomEvent<{ 
@@ -204,6 +215,7 @@
                  <div transition:slide|local={{ duration: 300, easing: quintOut }}>
                      <WelcomeStep 
                         on:getStarted={handleGetStarted}
+                        on:showPrivacyInfo={handleShowPrivacyInfo}
                      />
                  </div>
               {:else if currentStep === 'blockchain'}
@@ -227,7 +239,7 @@
 
       <!-- Bottom Button Bar -->
       <div class="pr-10 pl-4 py-4 border-t border-dark-border-primary bg-dark-bg-primary mt-auto">
-          <div class="flex justify-between items-center">
+          <div class="flex justify-between items-center cursor-default select-none">
               <!-- Left Side: Social Link -->
               <a 
                   href="https://x.com/NymiaApp" 
@@ -250,7 +262,7 @@
                     <button 
                         type="button"
                         on:click={prevStep} 
-                        class="py-2 px-3 border border-dark-border-primary rounded-md shadow-sm text-xs font-medium text-dark-text-primary bg-dark-bg-secondary hover:bg-dark-bg-tertiary focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-brand-green transition duration-150 ease-in-out"
+                        class="py-2 px-3 border border-dark-border-primary rounded-md shadow-sm text-xs font-medium select-none text-dark-text-primary bg-dark-bg-secondary hover:bg-dark-bg-tertiary focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-brand-green transition duration-150 ease-in-out"
                     >
                          Back
                     </button>
@@ -261,7 +273,7 @@
                     type="button"
                     on:click={primaryButtonAction} 
                     disabled={isPrimaryButtonDisabled} 
-                    class={`py-2 px-3 border border-transparent rounded-md shadow-sm text-xs font-medium text-white focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-brand-green disabled:opacity-60 disabled:cursor-not-allowed transition duration-150 ease-in-out ${!isPrimaryButtonDisabled ? 'hover:bg-brand-green-hover' : ''}`}
+                    class={`py-2 px-3 border border-transparent rounded-md shadow-sm text-xs font-medium select-none text-white focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-brand-green disabled:opacity-60 disabled:cursor-not-allowed transition duration-150 ease-in-out ${!isPrimaryButtonDisabled ? 'hover:bg-brand-green-hover' : ''}`}
                     style={`background-color: ${isPrimaryButtonDisabled ? '#9fcfb8' : '#419A6A'};`} 
                  >
                     {primaryButtonLabel}
@@ -297,6 +309,11 @@
         
    </div>
 </div>
+
+<!-- Privacy Info Modal -->
+{#if showPrivacyModal}
+  <PrivacyInfoModal on:close={handleClosePrivacyModal} />
+{/if}
 
 <style>
    /* Background animation keyframes */
