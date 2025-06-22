@@ -189,10 +189,7 @@
 >
 	<!-- Header -->
 	<svelte:fragment slot="header" let:modalHeaderId let:handleClose>
-		<div class="p-1.5 bg-brand-green/20 rounded-full mr-3">
-			<UserPlus size={16} class="text-brand-green" />
-		</div>
-		<h2 class="text-base font-medium text-dark-text-primary flex-grow" id={modalHeaderId}>Start New Chat</h2>
+		<h2 class="text-base font-medium text-dark-text-primary flex-grow cursor-default select-none" id={modalHeaderId}>Start New Chat</h2>
 		<button 
 			on:click={handleClose}
 			class="text-dark-text-secondary hover:text-dark-text-primary p-1 rounded-full hover:bg-dark-bg-tertiary transition-colors focus:outline-none focus:ring-1 focus:ring-dark-border-secondary"
@@ -205,7 +202,7 @@
 	<!-- Body -->
 	<div class="p-6 space-y-4">
 		<div class="space-y-2">
-			<label for="verusid-input" class="block text-sm font-semibold text-dark-text-primary">Enter VerusID</label>
+			<label for="verusid-input" class="block text-sm font-semibold text-dark-text-primary cursor-default select-none">Enter VerusID</label>
 			<div class="relative">
 				<input 
 					type="text" 
@@ -220,9 +217,9 @@
 				/>
 				<div class="absolute inset-0 rounded-lg bg-gradient-to-r from-transparent via-brand-green/5 to-transparent opacity-0 focus-within:opacity-100 transition-opacity duration-200 pointer-events-none {isSuccess ? 'opacity-30' : ''}"></div>
 			</div>
-			<p class="text-xs text-dark-text-secondary">
+			<p class="text-xs text-dark-text-secondary cursor-default select-none">
 				{#if isSuccess}
-					Press <kbd class="px-1 py-0.5 bg-dark-bg-tertiary border border-dark-border-secondary rounded text-xs font-mono">Enter</kbd> to start chatting
+					Press <kbd class="px-1 py-0.5 bg-dark-bg-tertiary border border-dark-border-secondary rounded text-xs font-mono cursor-default select-none">Enter</kbd> to start chatting
 				{:else}
 					Enter a VerusID to start a private conversation
 				{/if}

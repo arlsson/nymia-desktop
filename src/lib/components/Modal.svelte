@@ -51,12 +51,7 @@
     }
   }
 
-  function handleBackdropKeydown(event: KeyboardEvent) {
-    if (closeOnBackdrop && (event.key === 'Enter' || event.key === ' ')) {
-      event.preventDefault();
-      handleClose();
-    }
-  }
+
 
   // Body scroll prevention
   onMount(() => {
@@ -93,10 +88,6 @@
     class="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-60 backdrop-blur-sm p-4"
     transition:fade={{ duration: 150 }}
     on:click={handleBackdropClick}
-    on:keydown={handleBackdropKeydown}
-    role="button"
-    tabindex="0"
-    aria-label="Close modal"
   >
     <!-- Modal Content -->
     <div 

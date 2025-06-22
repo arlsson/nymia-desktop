@@ -23,6 +23,8 @@
   import type { PrivateBalance } from '$lib/types'; // Import PrivateBalance
   import { calculateMaxMessageLength } from '$lib/utils/messageLimit';
   import GiftOverlay from './GiftOverlay.svelte';
+  import Modal from '../Modal.svelte';
+  import Button from '../Button.svelte';
 
   // --- Constants ---
   const TX_FEE = 0.0001;
@@ -89,13 +91,8 @@
       event.preventDefault(); // Prevent default newline behavior
       handleSubmit();
     }
-    
-    // Cancel confirmation on Escape key
-    if (event.key === 'Escape' && showConfirmation) {
-      cancelSend();
-    }
 
-    // Close gift input on Escape
+    // Close gift input on Escape (confirmation dialog escape is now handled by Modal component)
     if (event.key === 'Escape' && showFundsInput) {
       toggleFundsInput();
     }
@@ -273,66 +270,73 @@
     </div>
     
     <!-- Confirmation Dialog -->
-    {#if showConfirmation}
-        <div class="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50 backdrop-blur-sm" on:keydown={handleKeyDown} role="dialog" aria-modal="true" aria-labelledby="confirmation-title" tabindex="-1">
-            <div class="bg-dark-bg-secondary rounded-lg shadow-xl w-full max-w-sm overflow-hidden transform transition-all duration-300 border border-dark-border-primary">
-                <div class="flex justify-between items-center p-3 border-b border-dark-border-primary bg-dark-bg-primary">
-                    <h3 id="confirmation-title" class="font-semibold text-dark-text-primary text-base">Confirm Send</h3>
-                    <button on:click={cancelSend} class="text-dark-text-secondary hover:text-dark-text-primary p-1 rounded-full hover:bg-dark-bg-tertiary transition-colors focus:outline-none focus:ring-1 focus:ring-dark-border-secondary" aria-label="Close confirmation">
-                        <X size={16} strokeWidth={2.5}/>
-                    </button>
+    <Modal 
+        show={showConfirmation} 
+        size="sm" 
+        on:close={cancelSend}
+    >
+        <!-- Header -->
+        <svelte:fragment slot="header" let:modalHeaderId let:handleClose>
+            <h3 class="font-semibold text-dark-text-primary text-base flex-grow cursor-default select-none" id={modalHeaderId}>Confirm Send</h3>
+            <button 
+                on:click={handleClose} 
+                class="text-dark-text-secondary hover:text-dark-text-primary p-1 rounded-full hover:bg-dark-bg-tertiary transition-colors focus:outline-none focus:ring-1 focus:ring-dark-border-secondary" 
+                aria-label="Close confirmation"
+            >
+                <X size={16} strokeWidth={2.5}/>
+            </button>
+        </svelte:fragment>
+
+        <!-- Body -->
+        <div class="p-4">
+            <p class="text-dark-text-secondary mb-3 text-sm cursor-default select-none">Are you sure you want to send this?</p>
+            
+            <!-- Message Preview -->
+            {#if messageText.trim()}
+                <div class="bg-dark-bg-tertiary p-2 rounded text-sm mb-2 border border-dark-border-secondary text-dark-text-primary" style="font-family: 'IBM Plex Mono', monospace; word-wrap: break-word;">
+                    {messageText}
                 </div>
-                
-                <div class="p-4">
-                    <p class="text-dark-text-secondary mb-3 text-sm">Are you sure you want to send this?</p>
-                    
-                    <!-- Message Preview -->
-                    {#if messageText.trim()}
-                        <div class="bg-dark-bg-tertiary p-2 rounded text-sm mb-2 border border-dark-border-secondary text-dark-text-primary" style="font-family: 'IBM Plex Mono', monospace; word-wrap: break-word;">
-                            {messageText}
-                        </div>
-                    {/if}
-                    
-                    <!-- Gift Preview with matching gradient -->
-                    {#if amountToSend && amountToSend > 0}
-                        <div class="flex items-center p-2 mb-2 gift-notification-container relative overflow-hidden rounded">
-                            <div class="absolute inset-0 bg-gradient-to-br from-indigo-500 via-purple-500 to-pink-500 gift-gradient-shift opacity-90"></div>
-                            <div class="relative z-10 flex items-center text-white font-medium">
-                                <Gift size={14} class="mr-1.5" />
-                                <span>Gift: {amountToSend} {currencySymbol}</span>
-                            </div>
-                        </div>
-                    {/if}
-                    
-                    <!-- Fee Details -->
-                    <div class="mt-3 mb-4 text-xs text-dark-text-disabled flex justify-between items-center">
-                        <span>Transaction fee: 0.0001 {currencySymbol}</span>
-                        <span class="font-medium text-dark-text-secondary">
-                            Total: {((amountToSend || 0) + 0.0001).toFixed(8)} {currencySymbol}
-                        </span>
+            {/if}
+            
+            <!-- Gift Preview with matching gradient -->
+            {#if amountToSend && amountToSend > 0}
+                <div class="flex items-center p-2 mb-2 gift-notification-container relative overflow-hidden rounded">
+                    <div class="absolute inset-0 bg-gradient-to-br from-indigo-500 via-purple-500 to-pink-500 gift-gradient-shift opacity-90"></div>
+                    <div class="relative z-10 flex items-center text-white font-medium">
+                        <Gift size={14} class="mr-1.5" />
+                        <span>Gift: {amountToSend} {currencySymbol}</span>
                     </div>
                 </div>
-                
-                <div class="px-4 py-3 bg-dark-bg-primary border-t border-dark-border-primary flex justify-end space-x-3">
-                    <button 
-                        type="button"
-                        on:click={cancelSend}
-                        class="py-2 px-3 border border-dark-border-secondary rounded-md shadow-sm text-xs font-medium text-dark-text-primary bg-dark-bg-tertiary hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-dark-bg-primary focus:ring-dark-border-secondary transition-colors"
-                    >
-                        Cancel
-                    </button>
-                    <button 
-                        type="button"
-                        on:click={confirmSend}
-                        class="py-2 px-3 border border-transparent rounded-md shadow-sm text-xs font-medium text-white focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-dark-bg-primary focus:ring-brand-green disabled:opacity-60 disabled:cursor-not-allowed transition-colors hover:bg-brand-green-hover flex items-center bg-brand-green"
-                    >
-                        <Check size={14} class="mr-1.5" />
-                        Confirm
-                    </button>
-                </div>
+            {/if}
+            
+            <!-- Fee Details -->
+            <div class="mt-3 mb-4 text-xs text-white/45 flex justify-between items-center cursor-default select-none">
+                <span>Transaction fee: 0.0001 {currencySymbol}</span>
+                <span class="font-medium text-white cursor-default select-none">
+                    Total: {((amountToSend || 0) + 0.0001).toFixed(8)} {currencySymbol}
+                </span>
             </div>
         </div>
-    {/if}
+
+        <!-- Footer -->
+        <svelte:fragment slot="footer">
+            <div class="flex justify-end space-x-3">
+                <Button 
+                    variant="secondary"
+                    on:click={cancelSend}
+                >
+                    Cancel
+                </Button>
+                <Button 
+                    variant="primary"
+                    iconComponent={Check}
+                    on:click={confirmSend}
+                >
+                    Confirm
+                </Button>
+            </div>
+        </svelte:fragment>
+    </Modal>
 </div>
 
 <style>
