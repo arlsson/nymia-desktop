@@ -70,7 +70,7 @@ onMount(() => {
       <p>
         Your privacy starts now — 
         <button 
-          class="text-dark-text-secondary hover:text-dark-text-primary cursor-pointer"
+          class="text-white/45 hover:text-white/70 cursor-pointer"
           on:click={() => dispatch('showPrivacyInfo')}
         >
           learn why.

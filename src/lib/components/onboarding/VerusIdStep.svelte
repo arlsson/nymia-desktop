@@ -114,14 +114,14 @@
 </script>
 
 <div class="step-content-area">
-    <h1 class="text-2xl font-semibold text-dark-text-primary mb-2">Select VerusID</h1>
-    <p class="text-dark-text-secondary text-normal mb-1">Choose the VerusID you want to log in with.</p>
+    <h1 class="text-2xl font-semibold text-dark-text-primary mb-2 select-none cursor-default">Select VerusID</h1>
+    <p class="text-dark-text-secondary text-normal mb-1 select-none cursor-default">Choose the VerusID you want to log in with.</p>
     
     <div class="flex items-center bg-blue-900/30 border-blue-700/50 rounded-md px-3 py-2 mb-6 border-l-2">
         <svg class="w-4 h-4 text-blue-400 mr-2 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg">
             <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd"></path>
         </svg>
-        <span class="text-xs text-blue-300">Only identities with a private address work with Nymia</span>
+        <span class="text-xs text-blue-300 select-none cursor-default">Only identities with a private address work with Nymia</span>
     </div>
 
     {#if fetchStatus === 'fetching'}
@@ -134,8 +134,8 @@
         </div>
     {:else if fetchStatus === 'error' && fetchError}
         <div class="mt-4 p-3 bg-red-900/40 border border-red-700/50 rounded-md text-center">
-            <p class="text-sm font-medium text-red-300">Error Loading Identities</p>
-            <p class="text-xs text-red-400">{fetchError}</p>
+            <p class="text-sm font-medium text-red-300 select-none cursor-default">Error Loading Identities</p>
+            <p class="text-xs text-red-400 select-none cursor-default">{fetchError}</p>
         </div>
     {:else if fetchStatus === 'success' && loginIdentities.length > 0}
         <CustomDropdown
@@ -147,8 +147,8 @@
         />
     {:else if fetchStatus === 'success' && loginIdentities.length === 0}
         <div class="mt-4 p-3 bg-yellow-900/40 border border-yellow-700/50 rounded-md text-center">
-            <p class="text-sm font-medium text-yellow-300">No Login IDs Found</p>
-            <p class="text-xs text-yellow-400">No VerusIDs with private addresses were found in your wallet.</p>
+            <p class="text-sm font-medium text-yellow-300 select-none cursor-default">No Login IDs Found</p>
+            <p class="text-xs text-yellow-400 select-none cursor-default">No VerusIDs with private addresses were found in your wallet.</p>
         </div>
     {/if}
 </div>

@@ -249,8 +249,8 @@
 
 <!-- Blockchain Detection Step Content -->
 <div class="step-content-area">
-    <h1 class="text-2xl font-semibold text-dark-text-primary mb-2">Connect to Blockchain</h1>
-    <p class="text-dark-text-secondary text-normal mb-6">
+    <h1 class="text-2xl font-semibold text-dark-text-primary mb-2 select-none cursor-default">Connect to Blockchain</h1>
+    <p class="text-dark-text-secondary text-normal mb-6 select-none cursor-default">
         {#if detectionState === 'loading'}
             Detecting available blockchain daemons...
         {:else if detectionState === 'completed'}
@@ -290,7 +290,7 @@
                         type="button"
                         on:click={() => selectBlockchain(blockchain)}
                         disabled={blockchain.status !== 'Available'}
-                        class="blockchain-item {getStatusColor(blockchain.status, blockchain.blockchain_id === selectedBlockchainId)} {blockchain.blockchain_id === selectedBlockchainId ? 'ring-2 ring-brand-green' : ''} {blockchain.status === 'Available' ? 'cursor-pointer hover:scale-[1.01] transition-all duration-150' : 'cursor-not-allowed opacity-75'}"
+                        class="blockchain-item {getStatusColor(blockchain.status, blockchain.blockchain_id === selectedBlockchainId)} {blockchain.blockchain_id === selectedBlockchainId ? 'ring-2 ring-brand-green' : ''} {blockchain.status === 'Available' ? 'cursor-pointer' : 'cursor-not-allowed opacity-75'}"
                         transition:slide={{ delay: i * 50, duration: 250, easing: quintOut }}
                     >
                         <div class="flex items-center space-x-4">
@@ -401,7 +401,7 @@
     }
 
     .blockchain-item {
-        @apply w-full p-4 border-2 rounded-lg transition-all duration-200;
+        @apply w-full p-4 border-2 rounded-lg;
         min-height: 72px;
     }
 
@@ -409,10 +409,7 @@
         @apply border-dark-border-secondary bg-dark-bg-tertiary/30;
     }
 
-    .blockchain-item:not(.skeleton):not(:disabled):hover {
-        transform: translateY(-1px);
-        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-    }
+
 
     .blockchain-item:not(.skeleton):focus {
         outline: none;

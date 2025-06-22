@@ -13,6 +13,8 @@
 // - Removed border divider between New Chat button and conversation list
 // - Fixed horizontal scrolling issue by removing horizontal margins
 // - Updated background color to specific hex color #121214
+// - Removed empty state text (handled in ConversationView)
+// - Added animated highlight to New Chat button when no conversations exist
 
   import { createEventDispatcher } from 'svelte';
   import { Plus } from 'lucide-svelte';
@@ -51,8 +53,12 @@
   <div class="p-3" style="background-color: #121214">
     <button 
       on:click={handleNewChat}
-      class="w-full flex items-center justify-center py-2 px-3 border border-dark-border-secondary hover:border-brand-green text-dark-text-primary rounded-md focus:outline-none focus:ring-2 focus:ring-brand-green focus:ring-offset-2 focus:ring-offset-dark-bg-secondary text-sm font-medium"
-      style="background-color: #121214"
+      class={`w-full flex items-center justify-center py-2 px-3 border text-dark-text-primary rounded-md focus:outline-none focus:ring-2 focus:ring-brand-green focus:ring-offset-2 focus:ring-offset-dark-bg-secondary text-sm font-medium ${
+        conversations.length === 0 
+          ? 'border-brand-green bg-brand-green/10 animate-pulse-glow shadow-lg shadow-brand-green/20' 
+          : 'border-dark-border-secondary hover:border-brand-green'
+      }`}
+      style="background-color: {conversations.length === 0 ? '' : '#121214'}"
     >
       <Plus size={16} class="mr-2 text-brand-green" />
       New Chat
@@ -61,63 +67,51 @@
 
   <!-- Conversation List (Scrollable) -->
   <div class="flex-grow overflow-y-auto px-1.5" style="background-color: #121214">
-    {#if conversations.length === 0}
-        <div class="flex items-center justify-center h-full p-6">
-            <div class="text-center">
-              <div class="w-12 h-12 mx-auto mb-3 rounded-full bg-dark-bg-tertiary flex items-center justify-center">
-                <Plus size={20} class="text-dark-text-disabled" />
-              </div>
-              <p class="text-sm text-dark-text-secondary font-medium mb-1">No conversations yet</p>
-              <p class="text-xs text-dark-text-disabled">Start a new chat to get started</p>
-            </div>
+    {#each conversations as conversation (conversation.id)}
+      <button 
+        on:click={() => handleSelect(conversation.id)}
+        class={`w-full text-left px-3 py-3 flex items-center group my-1 rounded-md
+        ${selectedConversationId === conversation.id ? 
+          'bg-white/5' : 
+          'hover:bg-white/5'}`}
+      >
+        <!-- Avatar -->
+        <div class="flex-shrink-0 mr-3">
+          <Avatar 
+            userId={conversation.name} 
+            size="small" 
+            showHover={false}
+          />
         </div>
-    {:else}
-        {#each conversations as conversation (conversation.id)}
-          <button 
-            on:click={() => handleSelect(conversation.id)}
-            class={`w-full text-left px-3 py-3 flex items-center group my-1 rounded-md
-            ${selectedConversationId === conversation.id ? 
-              'bg-white/5' : 
-              'hover:bg-white/5'}`}
-          >
-            <!-- Avatar -->
-            <div class="flex-shrink-0 mr-3">
-              <Avatar 
-                userId={conversation.name} 
-                size="small" 
-                showHover={false}
-              />
+        
+        <!-- Conversation Info -->
+        <div class="flex-grow min-w-0 flex items-center justify-between">
+          <div class="flex-grow min-w-0">
+            <div class="flex items-center">
+              <span class={`text-sm font-medium truncate ${
+                selectedConversationId === conversation.id ? 
+                'text-dark-text-primary' : 
+                'text-white/50 group-hover:text-dark-text-primary'
+              }`}>
+                {conversation.name}
+              </span>
             </div>
             
-            <!-- Conversation Info -->
-            <div class="flex-grow min-w-0 flex items-center justify-between">
-              <div class="flex-grow min-w-0">
-                <div class="flex items-center">
-                  <span class={`text-sm font-medium truncate ${
-                    selectedConversationId === conversation.id ? 
-                    'text-dark-text-primary' : 
-                    'text-white/50 group-hover:text-dark-text-primary'
-                  }`}>
-                    {conversation.name}
-                  </span>
-                </div>
-                
-                <!-- Message Preview Placeholder (for future enhancement) -->
-                <!-- <p class="text-xs text-dark-text-disabled truncate mt-0.5">
-                  Last message preview...
-                </p> -->
-              </div>
-              
-              <!-- Unread Indicator -->
-              {#if conversation.unread}
-                <div class="flex-shrink-0 ml-2">
-                  <div class="w-2 h-2 bg-brand-green rounded-full" title="Unread messages"></div>
-                </div>
-              {/if}
+            <!-- Message Preview Placeholder (for future enhancement) -->
+            <!-- <p class="text-xs text-dark-text-disabled truncate mt-0.5">
+              Last message preview...
+            </p> -->
+          </div>
+          
+          <!-- Unread Indicator -->
+          {#if conversation.unread}
+            <div class="flex-shrink-0 ml-2">
+              <div class="w-2 h-2 bg-brand-green rounded-full" title="Unread messages"></div>
             </div>
-          </button>
-        {/each}
-    {/if}
+          {/if}
+        </div>
+      </button>
+    {/each}
   </div>
 </div>
 
@@ -135,5 +129,21 @@
   }
   ::-webkit-scrollbar-thumb:hover {
     background: #525252; 
+  }
+
+  /* Custom pulse glow animation for new chat button */
+  @keyframes pulse-glow {
+    0%, 100% {
+      box-shadow: 0 0 20px rgba(34, 197, 94, 0.2);
+      border-color: rgba(34, 197, 94, 0.8);
+    }
+    50% {
+      box-shadow: 0 0 30px rgba(34, 197, 94, 0.4);
+      border-color: rgba(34, 197, 94, 1);
+    }
+  }
+
+  .animate-pulse-glow {
+    animation: pulse-glow 2s ease-in-out infinite;
   }
 </style> 

@@ -1,5 +1,3 @@
-
-
 <script lang="ts">
 // Component: src/lib/components/onboarding/PrivacyInfoModal.svelte
 // Description: Modal popup that explains Nymia's privacy features
@@ -8,10 +6,12 @@
 // Changes:
 // - Prevents background scrolling when modal is open
 // - Moved "Got it" button inline with content instead of separate footer section
+// - Updated to use the reusable Button component for consistency
 
   import { createEventDispatcher, onMount, onDestroy } from 'svelte';
   import { fade, scale } from 'svelte/transition';
   import { quintOut } from 'svelte/easing';
+  import Button from '../Button.svelte';
 
   const dispatch = createEventDispatcher<{ close: void }>();
 
@@ -83,7 +83,7 @@
           <ul class="ml-4 space-y-1 text-xs text-dark-text-secondary">
             <li class="flex items-start">
               <span class="text-brand-green text-xs mr-2 mt-1">•</span>
-              <span>The blockchain sees that something happened, but not what you said</span>
+              <span>The blockchain sees that a valid transaction happened, but not who sent it, who received it, or what you said</span>
             </li>
             <li class="flex items-start">
               <span class="text-brand-green text-xs mr-2 mt-1">•</span>
@@ -130,12 +130,12 @@
 
       <!-- Got it button -->
       <div class="flex justify-end mt-6">
-        <button
+        <Button
+          variant="primary"
           on:click={handleClose}
-          class="py-2 px-4 bg-brand-green text-white text-xs font-medium rounded-md transition-colors duration-150 select-none"
         >
           Got It
-        </button>
+        </Button>
       </div>
 
     </div>

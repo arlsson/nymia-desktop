@@ -17,6 +17,8 @@
 // - Fixed Continue button logic to only enable when Available blockchain is selected (not just Loading)
 // - Added "Follow on X for updates" social link on the left side of the bottom button bar
 // - Added PrivacyInfoModal component and handling for privacy info display from WelcomeStep
+// - Extracted inline button elements into reusable Button component for better maintainability
+// - Replaced Back button and Primary Action Button with Button component variants
 
   import { createEventDispatcher } from 'svelte';
   import { invoke } from '@tauri-apps/api/core';
@@ -29,6 +31,9 @@
   import BlockchainDetectionStep from './onboarding/BlockchainDetectionStep.svelte';
   import VerusIdStep from './onboarding/VerusIdStep.svelte';
   import PrivacyInfoModal from './onboarding/PrivacyInfoModal.svelte';
+  
+  // Import Shared Components
+  import Button from './Button.svelte';
 
   // Import Shared Types
   import type { 
@@ -245,7 +250,7 @@
                   href="https://x.com/NymiaApp" 
                   target="_blank" 
                   rel="noopener noreferrer"
-                  class="flex items-center py-2 px-2 text-xs text-white/50 hover:text-white/90 group"
+                  class="flex items-center py-2 px-2 text-xs text-white/45 hover:text-white/70 group"
               >
                   <!-- X Icon (simplified SVG since Lucide doesn't have Twitter/X) -->
                   <svg class="w-5 h-5 mr-2 group-hover:text-dark-text-primary" fill="currentColor" viewBox="0 0 24 24">
@@ -259,25 +264,19 @@
               <div class="flex space-x-3">
                    <!-- Back Button (Conditional) -->
                   {#if currentStep !== 'welcome'}
-                    <button 
-                        type="button"
-                        on:click={prevStep} 
-                        class="py-2 px-3 border border-dark-border-primary rounded-md shadow-sm text-xs font-medium select-none text-dark-text-primary bg-dark-bg-secondary hover:bg-dark-bg-tertiary focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-brand-green transition duration-150 ease-in-out"
-                    >
-                         Back
-                    </button>
+                    <Button variant="secondary" on:click={prevStep}>
+                      Back
+                    </Button>
                   {/if}
 
                  <!-- Primary Action Button -->
-                  <button 
-                    type="button"
-                    on:click={primaryButtonAction} 
+                  <Button 
+                    variant="primary" 
                     disabled={isPrimaryButtonDisabled} 
-                    class={`py-2 px-3 border border-transparent rounded-md shadow-sm text-xs font-medium select-none text-white focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-brand-green disabled:opacity-60 disabled:cursor-not-allowed transition duration-150 ease-in-out ${!isPrimaryButtonDisabled ? 'hover:bg-brand-green-hover' : ''}`}
-                    style={`background-color: ${isPrimaryButtonDisabled ? '#9fcfb8' : '#419A6A'};`} 
-                 >
+                    on:click={primaryButtonAction}
+                  >
                     {primaryButtonLabel}
-                </button>
+                  </Button>
               </div>
           </div>
       </div>

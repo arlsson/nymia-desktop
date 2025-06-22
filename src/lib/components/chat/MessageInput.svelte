@@ -213,7 +213,7 @@
             <!-- Right side controls container -->
             <div class="flex items-center space-x-2 px-3 py-2">
                 <!-- Character counter -->
-                <div class={`text-xs ${charCountClass} select-none`}>
+                <div class={`text-xs ${charCountClass} select-none cursor-default`}>
                     {messageLength}/{maxMessageLength}
                 </div>
                 

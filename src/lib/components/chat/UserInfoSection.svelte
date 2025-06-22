@@ -44,10 +44,10 @@
 
 <div class="border-t border-dark-border-primary p-3 flex-shrink-0" style="background-color: #121214">
   <!-- Row 1: Avatar + Name + Action Buttons -->
-  <div class="flex items-center justify-between mb-2">
+  <div class="flex items-center justify-between mb-4">
     <!-- Left: Avatar + Name -->
     <div class="flex items-center min-w-0 flex-1">
-      <Avatar userId={verusIdName} size="small" showHover={true} />
+      <Avatar userId={verusIdName} size="small" showHover={false} />
       <div class="ml-2 min-w-0 flex-1">
         <div class="font-semibold text-dark-text-primary text-sm truncate">
           {verusIdName}
@@ -75,11 +75,14 @@
     </div>
   </div>
 
+  <!-- Subtle separator -->
+  <div class="h-px bg-white/10 mb-3"></div>
+
   <!-- Row 2: Private Balance -->
-  <div class="flex items-center justify-between text-xs mb-2">
-    <span class="text-dark-text-secondary">Private Balance</span>
+  <div class="flex items-center justify-between text-xs mb-3">
+    <span class="text-white/45 cursor-default select-none">Private Balance</span>
     <div class="flex items-center">
-      <span class={`font-mono font-medium ${privateBalance !== null ? 'text-white' : 'text-dark-text-disabled'}`}>
+      <span class={`font-mono font-bold cursor-default select-none ${privateBalance !== null ? 'text-green-300' : 'text-dark-text-disabled'}`}>
         {formattedBalance}
       </span>
       {#if isTransactionPending}
@@ -90,9 +93,12 @@
     </div>
   </div>
 
+  <!-- Separator before block height -->
+  <div class="h-px bg-white/10 my-3"></div>
+
   <!-- Row 3: Block Height (Subtle) -->
   {#if blockHeight !== null}
-    <div class="flex items-center text-xs text-white/45">
+    <div class="flex items-center text-xs text-white/45 cursor-default select-none">
       <Layers size={10} class="mr-1" />
       <span>Block #{blockHeight}</span>
     </div>

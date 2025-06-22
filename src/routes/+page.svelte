@@ -9,6 +9,7 @@
 // - Added fetching and passing of private balance.
 // - Added dynamic currency symbol support by tracking selected blockchain ID and passing to ChatInterface.
 // - Modified to start at blockchain detection step (instead of VerusID step) when stored credentials are found.
+// - Fixed first launch to start at welcome step instead of blockchain detection step.
 
 	import { onMount, onDestroy } from 'svelte';
 	import { invoke } from '@tauri-apps/api/core';
@@ -29,7 +30,7 @@
 	let appStatus: AppStatus = 'loading';
 	let startupError: string | null = null;
     let storedCredentials: Credentials | null = null;
-    let initialOnboardingStep: 'blockchain' | 'verusid' = 'blockchain';
+    let initialOnboardingStep: 'welcome' | 'blockchain' | 'verusid' = 'welcome';
 
     let loggedInIdentity: FormattedIdentity | null = null;
     let currentBlockHeight: number | null = null;
@@ -61,7 +62,7 @@
                     console.warn('Failed to clear stored credentials:', clearError);
                 }
                 storedCredentials = null;
-                initialOnboardingStep = 'blockchain';
+                initialOnboardingStep = 'welcome';
                 appStatus = 'onboarding'; // Normal start
             } else {
                 console.error('Unexpected error loading credentials:', error);
@@ -122,15 +123,18 @@
         try {
             storedCredentials = await invoke<Credentials>('load_credentials');
             console.log("Logout: Refreshed credentials from store:", storedCredentials?.rpc_port);
+            // If we have stored credentials, skip to VerusID step, otherwise start from welcome
+            initialOnboardingStep = 'verusid'; 
         } catch (error) {
             console.warn("Logout: Could not reload credentials:", error);
-            // storedCredentials remains as it was
+            // If no stored credentials, start from welcome
+            storedCredentials = null;
+            initialOnboardingStep = 'welcome';
         }
         
         loggedInIdentity = null;
         currentPrivateBalance = null; // Clear balance on logout
         selectedBlockchainId = null; // Clear blockchain selection on logout
-        initialOnboardingStep = 'verusid'; 
         appStatus = 'onboarding';
         // Restart timer as we are back in an authenticated state (RPC creds still valid)
         startBlockCheckTimer();
