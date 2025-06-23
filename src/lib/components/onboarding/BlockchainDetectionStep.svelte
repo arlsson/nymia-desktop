@@ -1,16 +1,12 @@
 <script lang="ts">
 // Component: src/lib/components/onboarding/BlockchainDetectionStep.svelte
-// Description: Automatic blockchain detection and selection with list-based UI.
-// Replaces the old BlockchainStep + CredentialsStep manual workflow with automatic detection.
-// Features:
-// - Parallel detection of all supported blockchains on component mount
-// - Skeleton loading states during detection
-// - Clean list layout with Lucide icons for status indicators
-// - Manual folder selection for custom config locations
-// - Passes credentials via props (saved later during login, not here)
+// Description: Automatically detects available blockchains and allows user to select one.
+// Handles parallel detection of blockchain configurations and daemon connections.
 // Changes:
-// - Modified styling so Available blockchains appear unselected until user clicks them
-// - Removed detection completion message from UI
+// - Added automatic credential saving immediately after successful blockchain selection
+// - This ensures credentials are available in the store when the VerusID step tries to load them
+// - Prevents "Credentials not found in store" errors during onboarding
+// - Added invoke import for save_credentials functionality
 
     import { createEventDispatcher, onMount, onDestroy } from 'svelte';
     import { invoke } from '@tauri-apps/api/core';
@@ -211,7 +207,20 @@
         console.log(`BlockchainDetectionStep: Blockchain selected: ${blockchain.blockchain_name}`);
         selectedBlockchainId = blockchain.blockchain_id;
 
-        // Dispatch selection event with credentials (will be saved after successful login)
+        try {
+            // Save credentials immediately after successful selection
+            await invoke('save_credentials', {
+                rpcUser: blockchain.credentials.rpc_user,
+                rpcPass: blockchain.credentials.rpc_pass,
+                rpcPort: blockchain.credentials.rpc_port
+            });
+            console.log('BlockchainDetectionStep: Credentials saved successfully after blockchain selection.');
+        } catch (saveError) {
+            console.error('BlockchainDetectionStep: Failed to save credentials after blockchain selection:', saveError);
+            // Don't block the flow, but log the error - credentials will still be passed via event
+        }
+
+        // Dispatch selection event with credentials
         dispatch('blockchainSelected', {
             blockchainId: blockchain.blockchain_id,
             credentials: blockchain.credentials,

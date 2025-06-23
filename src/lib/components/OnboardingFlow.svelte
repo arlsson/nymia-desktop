@@ -13,21 +13,24 @@
 // - Removed hardcoded port fallback - ports must come from credentials or be undefined
 // - MAJOR: Replaced manual blockchain + credentials steps with automatic BlockchainDetectionStep
 // - Simplified onboarding to Welcome → Detection → VerusID (3 steps instead of 4)
-// - Credential saving moved to login step for better separation of concerns
+// - Credential saving moved to blockchain detection step to ensure credentials are available for VerusID fetching
 // - Fixed Continue button logic to only enable when Available blockchain is selected (not just Loading)
 // - Added "Follow on X for updates" social link on the left side of the bottom button bar
 // - Added PrivacyInfoModal component and handling for privacy info display from WelcomeStep
 // - Extracted inline button elements into reusable Button component for better maintainability
 // - Replaced Back button and Primary Action Button with Button component variants
+// - LATEST: Added ResponsibilityStep between Welcome and Blockchain Detection steps
+// - Updated onboarding flow to Welcome → Responsibility → Detection → VerusID (4 steps total)
+// - Added responsibility disclosure with "I Understand" button
 
   import { createEventDispatcher } from 'svelte';
-  import { invoke } from '@tauri-apps/api/core';
   import { slide } from 'svelte/transition';
   import { quintOut } from 'svelte/easing';
   import { ExternalLink } from 'lucide-svelte';
 
   // Import Step Components
   import WelcomeStep from './onboarding/WelcomeStep.svelte';
+  import ResponsibilityStep from './onboarding/ResponsibilityStep.svelte';
   import BlockchainDetectionStep from './onboarding/BlockchainDetectionStep.svelte';
   import VerusIdStep from './onboarding/VerusIdStep.svelte';
   import PrivacyInfoModal from './onboarding/PrivacyInfoModal.svelte';
@@ -44,7 +47,7 @@
   } from '$lib/types';
 
   // --- Types ---
-  type Step = 'welcome' | 'blockchain' | 'verusid';
+  type Step = 'welcome' | 'responsibility' | 'blockchain' | 'verusid';
 
   // --- Props ---
   export let initialStep: OnboardingStep = 'welcome';
@@ -96,6 +99,8 @@
 
   function nextStep() {
     if (currentStep === 'welcome') {
+      goToStep('responsibility');
+    } else if (currentStep === 'responsibility') {
       goToStep('blockchain');
     } else if (currentStep === 'blockchain' && detectionCompleted && currentCredentials) {
       goToStep('verusid');
@@ -103,8 +108,10 @@
   }
 
   function prevStep() {
-    if (currentStep === 'blockchain') {
+    if (currentStep === 'responsibility') {
       goToStep('welcome');
+    } else if (currentStep === 'blockchain') {
+      goToStep('responsibility');
     } else if (currentStep === 'verusid') {
       // Reset VerusID selection when going back
       selectedIdentity = null;
@@ -116,7 +123,7 @@
 
   // --- Event Handlers from Step Components ---
   function handleGetStarted() {
-    goToStep('blockchain');
+    goToStep('responsibility');
   }
 
   function handleShowPrivacyInfo() {
@@ -125,6 +132,10 @@
 
   function handleClosePrivacyModal() {
     showPrivacyModal = false;
+  }
+
+  function handleUnderstood() {
+    goToStep('blockchain');
   }
 
   function handleBlockchainSelected(event: CustomEvent<{ 
@@ -163,43 +174,30 @@
           return;
       }
       
-      try {
-          // Save credentials to store after successful identity selection
-          await invoke('save_credentials', {
-              rpcUser: currentCredentials.rpc_user,
-              rpcPass: currentCredentials.rpc_pass,
-              rpcPort: currentCredentials.rpc_port
-          });
-          
-          console.log(`OnboardingFlow: Login initiated for ${selectedIdentity.formatted_name} (${selectedIdentity.i_address})`);
-          dispatch('login-success', {
-             identity: selectedIdentity,
-             blockHeight: connectionBlockHeight,
-             blockchainId: selectedBlockchainId
-          });
-      } catch (error) {
-          console.error("OnboardingFlow: Failed to save credentials during login:", error);
-          // Could show error to user, but for now we'll still proceed with login
-          dispatch('login-success', {
-             identity: selectedIdentity,
-             blockHeight: connectionBlockHeight,
-             blockchainId: selectedBlockchainId
-          });
-      }
+      // Credentials are now saved earlier during blockchain selection, so we can proceed directly to login
+      console.log(`OnboardingFlow: Login initiated for ${selectedIdentity.formatted_name} (${selectedIdentity.i_address})`);
+      dispatch('login-success', {
+         identity: selectedIdentity,
+         blockHeight: connectionBlockHeight,
+         blockchainId: selectedBlockchainId
+      });
   }
 
   // --- Dynamic Button Logic ---
   $: primaryButtonLabel = 
       currentStep === 'welcome' ? 'Get Started' :
+      currentStep === 'responsibility' ? 'I Understand' :
       currentStep === 'blockchain' ? 'Continue' : 'Login';
 
   $: isPrimaryButtonDisabled = 
       currentStep === 'welcome' ? false :
+      currentStep === 'responsibility' ? false :
       (currentStep === 'blockchain' && (!detectionCompleted || !blockchainSelected)) ||
       (currentStep === 'verusid' && !selectedIdentity); // Check the full object
 
   $: primaryButtonAction = 
       currentStep === 'welcome' ? handleGetStarted :
+      currentStep === 'responsibility' ? handleUnderstood :
       currentStep === 'blockchain' ? nextStep : handleLogin;
 
 </script>
@@ -221,6 +219,12 @@
                      <WelcomeStep 
                         on:getStarted={handleGetStarted}
                         on:showPrivacyInfo={handleShowPrivacyInfo}
+                     />
+                 </div>
+              {:else if currentStep === 'responsibility'}
+                 <div transition:slide|local={{ duration: 300, easing: quintOut }}>
+                     <ResponsibilityStep 
+                        on:understood={handleUnderstood}
                      />
                  </div>
               {:else if currentStep === 'blockchain'}

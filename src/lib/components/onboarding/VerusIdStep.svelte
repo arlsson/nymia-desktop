@@ -4,6 +4,8 @@
 // Changes:
 // - Modified 'idSelected' event to dispatch the full FormattedIdentity object.
 // - Removed "Clear Authentication" buttons as they're no longer needed with automatic blockchain detection.
+// - Improved error handling with user-friendly messages for credential and connection issues
+// - Added specific error message for "Credentials not found" to guide user back to blockchain step
 
     import { createEventDispatcher, onMount } from 'svelte';
     import { invoke } from '@tauri-apps/api/core';
@@ -78,7 +80,7 @@
             console.error("VerusIdStep: Failed to fetch login identities:", error);
             fetchStatus = 'error';
             
-            // Better error message handling
+            // Better error message handling with user-friendly messages
             let errorMessage = 'Unknown error occurred';
             if (error && typeof error === 'object') {
                 if (error.message) {
@@ -92,7 +94,15 @@
                 errorMessage = String(error);
             }
             
-            fetchError = `Error fetching identities: ${errorMessage}`;
+            // Check for specific credential-related errors and provide better messaging
+            if (errorMessage.includes('Credentials not found') || errorMessage.includes('NotFound')) {
+                fetchError = 'Connection to blockchain lost. Please go back and reconnect to your blockchain.';
+            } else if (errorMessage.includes('No VerusIDs with private addresses found')) {
+                fetchError = 'No VerusIDs with private addresses found in your wallet.';
+            } else {
+                fetchError = `Unable to load identities: ${errorMessage}`;
+            }
+            
             dispatch('idSelected', { identity: null }); // Ensure parent knows none are selected on error
         }
     }
@@ -136,6 +146,23 @@
         <div class="mt-4 p-3 bg-red-900/40 border border-red-700/50 rounded-md text-center">
             <p class="text-sm font-medium text-red-300 select-none cursor-default">Error Loading Identities</p>
             <p class="text-xs text-red-400 select-none cursor-default">{fetchError}</p>
+            {#if fetchError.includes('Connection to blockchain lost')}
+                <button
+                    type="button"
+                    on:click={() => {
+                        // Retry fetching identities
+                        if (credentials) {
+                            fetchIdentities();
+                        }
+                    }}
+                    class="mt-3 inline-flex items-center px-3 py-1 border border-red-600/50 rounded text-xs font-medium text-red-200 bg-red-800/30 hover:bg-red-700/40 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 transition-colors duration-150"
+                >
+                    <svg class="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+                    </svg>
+                    Retry
+                </button>
+            {/if}
         </div>
     {:else if fetchStatus === 'success' && loginIdentities.length > 0}
         <CustomDropdown

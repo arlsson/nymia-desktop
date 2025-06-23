@@ -92,7 +92,7 @@
     <!-- Modal Content -->
     <div 
       bind:this={modalElement}
-      class="bg-dark-bg-secondary rounded-lg shadow-xl w-full {sizeClasses[size]} transform transition-all duration-300 border border-dark-border-primary overflow-hidden"
+      class="bg-[#121214] rounded-lg shadow-xl w-full {sizeClasses[size]} transform transition-all duration-300 border border-dark-border-primary overflow-hidden"
       transition:scale={{ duration: 200, easing: quintOut }}
       on:click|stopPropagation
       role="dialog"
@@ -102,7 +102,7 @@
     >
       <!-- Header Slot -->
       {#if $$slots.header}
-        <div class="flex items-center p-3 border-b border-dark-border-primary bg-dark-bg-primary">
+        <div class="flex items-center p-3 border-b border-dark-border-primary bg-[#121214]">
           <slot name="header" {modalHeaderId} {handleClose} />
         </div>
       {/if}
@@ -112,7 +112,7 @@
 
       <!-- Footer Slot -->
       {#if $$slots.footer}
-        <div class="px-4 py-3 bg-dark-bg-primary border-t border-dark-border-primary">
+        <div class="px-4 py-3 bg-dark-bg-primary ">
           <slot name="footer" {handleClose} />
         </div>
       {/if}

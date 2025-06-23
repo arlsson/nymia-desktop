@@ -58,6 +58,18 @@ yarn tauri build
 - **Blockchain**: Verus Protocol
 - **Identity**: VerusID
 
+## Important Disclaimers
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+
+**Security Notice**: Nymia is experimental software that handles blockchain transactions. Users are responsible for:
+- Securing their own RPC credentials and private keys
+- Understanding the risks of blockchain transactions
+- Verifying all transactions and communications
+- Maintaining backups of important data
+
+**No Financial Advice**: This software is a communication tool only and does not provide financial, investment, or legal advice.
+
 ## License
 
 This project is licensed under the MIT License - see the [LICENSE.md](LICENSE.md) file for details.
