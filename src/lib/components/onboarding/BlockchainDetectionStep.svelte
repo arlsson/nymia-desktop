@@ -97,10 +97,10 @@
         return true;
     });
 
-    // Show no blockchain found step if detection is complete but no available blockchains
+    // Show no blockchain found step if detection is complete but no detected blockchains (Available OR Loading)
     $: if (detectionState === 'completed') {
-        const availableCount = detectionResults.filter(r => r.status === 'Available').length;
-        showNoBlockchainFoundStep = availableCount === 0;
+        const detectedCount = detectionResults.filter(r => r.status === 'Available' || r.status === 'Loading').length;
+        showNoBlockchainFoundStep = detectedCount === 0;
     }
 
     // --- Detection Logic ---

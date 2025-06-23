@@ -48,11 +48,16 @@
         try {
             const result: ParallelDetectionResult = await invoke('detect_all_blockchains');
             
-            if (result.total_detected > 0) {
-                console.log(`NoBlockchainFoundStep: Retry successful - found ${result.total_detected} blockchains`);
+            // Check for any detected blockchains (Available OR Loading states)
+            const detectedChains = result.blockchains.filter(b => 
+                b.status === 'Available' || b.status === 'Loading'
+            );
+            
+            if (detectedChains.length > 0) {
+                console.log(`NoBlockchainFoundStep: Retry successful - found ${detectedChains.length} blockchain(s) (Available: ${result.total_detected}, Loading: ${detectedChains.length - result.total_detected})`);
                 dispatch('blockchainsFound', { results: result });
             } else {
-                console.log('NoBlockchainFoundStep: Retry completed but still no blockchains found');
+                console.log('NoBlockchainFoundStep: Retry completed but still no blockchains found (Available or Loading)');
                 // No error message needed - user stays on current screen as expected
             }
         } catch (error) {
