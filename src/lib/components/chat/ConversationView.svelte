@@ -21,7 +21,6 @@
   export let contactName: string | null = null;
   export let messages: ChatMessage[] = [];
   export let privateBalance: PrivateBalance = null;
-  export let isTransactionPending: boolean = false;
   export let verusIdName: string; // Current user's VerusID name for dynamic message limit calculation
   export let currencySymbol: string = 'VRSC'; // Dynamic currency symbol
   export let utxoInfo: UtxoInfo | null = null; // NEW: UTXO information for Fast Messages
@@ -72,7 +71,6 @@
     <div class="flex-shrink-0 bg-dark-bg-secondary">
       <MessageInput 
         {privateBalance}  
-        {isTransactionPending}
         {verusIdName}
         {currencySymbol}
         {utxoInfo}

@@ -37,6 +37,12 @@ pub async fn get_private_balance(rpc_user: String, rpc_pass: String, rpc_port: u
     make_rpc_call(&rpc_user, &rpc_pass, rpc_port, "z_getbalance", vec![json!(address)]).await
 }
 
+// Function to get pending balance for a z-address (0 confirmations)
+pub async fn get_pending_balance(rpc_user: String, rpc_pass: String, rpc_port: u16, address: String) -> Result<f64, VerusRpcError> {
+    log::info!("Fetching pending balance for address: {}", address);
+    make_rpc_call(&rpc_user, &rpc_pass, rpc_port, "z_getbalance", vec![json!(address), json!(0)]).await
+}
+
 // NEW function to get UTXO information for Fast Messages
 pub async fn get_utxo_info(
     rpc_user: String,

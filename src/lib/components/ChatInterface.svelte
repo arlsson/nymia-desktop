@@ -34,13 +34,14 @@
   import PersistencePromptModal from './chat/PersistencePromptModal.svelte'; // Import persistence modal
   import SettingsView from './settings/SettingsView.svelte'; // Import settings view
   import UserInfoSection from './chat/UserInfoSection.svelte'; // Import user info section
-  import type { FormattedIdentity, PrivateBalance, ChatMessage, Conversation, UtxoInfo } from '$lib/types';
+  import type { FormattedIdentity, PrivateBalance, PendingBalance, ChatMessage, Conversation, UtxoInfo } from '$lib/types';
   import { getCurrencySymbol } from '$lib/utils/currencySymbol';
 
   // --- Props ---
   export let loggedInIdentity: FormattedIdentity | null = null; // Received from parent (+page.svelte)
   export let blockHeight: number | null = null; // Received from parent (+page.svelte)
   export let privateBalance: PrivateBalance = null; // Use the new type alias
+  export let pendingBalance: PendingBalance = null; // NEW: Balance with 0 confirmations
   export let blockchainId: string | null = null; // NEW: Selected blockchain for dynamic currency symbol
 
   // --- Constants ---
@@ -57,9 +58,7 @@
   let showNewChatModal = false;
   let showSettingsView = false; // NEW: Track if settings view is active
 
-  // Pending Transaction State
-  let isTransactionPending = false;
-  let pendingSinceBlock: number | null = null;
+
 
   // Persistence State
   let showPersistencePrompt = false;
@@ -430,11 +429,6 @@
         });
         console.log(`ChatInterface: Message send initiated successfully via backend. OPID: ${opid}`);
 
-        // ---> Set Pending State on Success <----
-        console.log(`ChatInterface: Setting pending state. Current block height: ${blockHeight}`);
-        isTransactionPending = true;
-        pendingSinceBlock = blockHeight; // Capture the block height *at the time of sending*
-
     } catch (error) {
         console.error("ChatInterface: Error sending message via backend:", error);
         // Revert optimistic update or mark message as failed
@@ -444,9 +438,7 @@
             messages = { ...messages }; // Trigger reactivity to show potential failure
             console.log(`ChatInterface: Marked optimistic message ${newMessage.id} as failed.`);
         }
-        // Ensure pending state is NOT set or is cleared on error
-        isTransactionPending = false; 
-        pendingSinceBlock = null;
+
     }
   }
 
@@ -648,12 +640,7 @@
   } 
   $: selectedContactName = showSettingsView ? null : selectedConversationId ? conversations.find(c => c.id === selectedConversationId)?.name : null; // Don't show contact name if settings are open
 
-  // --- Reactive Logic for Clearing Pending State ---
-  $: if (isTransactionPending && blockHeight !== null && pendingSinceBlock !== null && blockHeight > pendingSinceBlock) {
-      console.log(`ChatInterface: Detected new block (${blockHeight} > ${pendingSinceBlock}). Clearing pending state.`);
-      isTransactionPending = false;
-      pendingSinceBlock = null;
-  }
+
 
   // --- Simple Timestamp-Based Sorting Logic ---
   function sortMessages(messageList: ChatMessage[]): ChatMessage[] {
@@ -736,8 +723,8 @@
     <UserInfoSection 
       verusIdName={loggedInIdentity?.formatted_name || 'Unknown User'} 
       privateBalance={privateBalance}
+      pendingBalance={pendingBalance}
       blockHeight={blockHeight}
-      isTransactionPending={isTransactionPending}
       currencySymbol={currencySymbol}
       utxoInfo={utxoInfo}
       isUtxoLoading={isUtxoLoading}
@@ -761,7 +748,6 @@
             contactName={selectedContactName}
             messages={selectedMessages}
             privateBalance={privateBalance}
-            isTransactionPending={isTransactionPending}
             verusIdName={loggedInIdentity?.formatted_name || ''}
             currencySymbol={currencySymbol}
             utxoInfo={utxoInfo}
