@@ -14,7 +14,7 @@
   import ChatHeader from './ChatHeader.svelte';
   import MessageList from './MessageList.svelte';
   import EmptyState from './EmptyState.svelte';
-  import type { ChatMessage, PrivateBalance } from '$lib/types';
+  import type { ChatMessage, PrivateBalance, UtxoInfo } from '$lib/types';
   import { groupMessages } from '$lib/utils/messageGrouping';
 
   // --- Props ---
@@ -24,6 +24,7 @@
   export let isTransactionPending: boolean = false;
   export let verusIdName: string; // Current user's VerusID name for dynamic message limit calculation
   export let currencySymbol: string = 'VRSC'; // Dynamic currency symbol
+  export let utxoInfo: UtxoInfo | null = null; // NEW: UTXO information for Fast Messages
 
   // --- State ---
   let chatContainer: HTMLElement | undefined;
@@ -74,6 +75,7 @@
         {isTransactionPending}
         {verusIdName}
         {currencySymbol}
+        {utxoInfo}
         on:sendMessage={handleSendMessage} 
       />
     </div>

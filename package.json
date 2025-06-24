@@ -1,6 +1,6 @@
 {
   "name": "nymia",
-  "version": "0.1.0",
+  "version": "0.2.1",
   "description": "",
   "type": "module",
   "scripts": {
@@ -27,7 +27,6 @@
     "@sveltejs/vite-plugin-svelte": "^5.0.0",
     "@tailwindcss/postcss": "^4.1.4",
     "@tauri-apps/cli": "^2",
-    "@types/canvas-confetti": "^1.9.0",
     "autoprefixer": "10",
     "postcss": "8",
     "svelte": "^5.0.0",

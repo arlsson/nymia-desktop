@@ -113,7 +113,7 @@
           Open source and auditable
         </h3>
         <p class="text-xs text-dark-text-secondary leading-relaxed">
-          Every line of code can be inspected. No hidden backdoors, no secret data collection — just transparent, private communication. 
+          Every line of code can be inspected. No hidden backdoors, no secret data collection — just transparent, private, peer-to-peer communication. 
           <a 
             href="https://github.com/Meyse/nymia-desktop" 
             target="_blank" 

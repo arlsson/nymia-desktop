@@ -46,10 +46,10 @@ onMount(() => {
           </div>
           <div class="flex-1 space-y-3">
             <p class="text-xs text-dark-text-secondary leading-relaxed select-none cursor-default">
-              Nymia runs entirely on your device, using your full node to talk to the blockchain.
+              Nymia runs 100% locally and doesn't talk to any servers.
             </p>
             <p class="text-xs text-dark-text-secondary leading-relaxed select-none cursor-default">
-                Not connected to the internet. No cloud, no servers, no fallback.
+                It connects only to your node, which handles all network communication.
             </p>
           </div>
         </div>

@@ -17,10 +17,12 @@
 // - Added dynamic currency symbol support based on selected blockchain
 // - REFACTOR: Extracted gift overlay into separate GiftOverlay component for better code organization
 // - UI IMPROVEMENT: Redesigned gift amount badge with better contrast, standard styling, and improved readability
+// - FAST MESSAGES: Changed send button logic to use UTXO availability instead of pending transaction state
+//   Allows rapid message sending when multiple UTXOs are available
 
   import { createEventDispatcher } from 'svelte';
   import { Send, Gift, X, Check } from 'lucide-svelte';
-  import type { PrivateBalance } from '$lib/types'; // Import PrivateBalance
+  import type { PrivateBalance, UtxoInfo } from '$lib/types'; // Import PrivateBalance and UtxoInfo
   import { calculateMaxMessageLength } from '$lib/utils/messageLimit';
   import GiftOverlay from './GiftOverlay.svelte';
   import Modal from '../Modal.svelte';
@@ -34,6 +36,7 @@
   export let isTransactionPending: boolean = false; // Add pending state prop
   export let verusIdName: string; // Current user's VerusID name for dynamic message limit calculation
   export let currencySymbol: string = 'VRSC'; // Dynamic currency symbol
+  export let utxoInfo: UtxoInfo | null = null; // NEW: UTXO information for Fast Messages impact
 
   // --- State ---
   let messageText: string = '';
@@ -143,16 +146,20 @@
       ? `Send ${messageText.trim() ? 'a message with ' : ''}${amountToSend} ${currencySymbol} gift` 
       : 'Send message';
       
-  // FIX: Corrected disabled logic: button enabled if (message is valid OR amount is valid) AND confirmation is not shown AND balance is sufficient AND NO PENDING TX
+  // Send button disabled logic: use Fast Messages availability instead of pending transaction state
   $: sendButtonDisabled = 
     (messageText.trim().length > maxMessageLength) || // Message too long
     (messageText.trim().length === 0 && (amountToSend === null || amountToSend <= 0)) || // No message and no gift
     (amountToSend !== null && privateBalance !== null && amountToSend > (privateBalance - TX_FEE)) || // Insufficient balance
-    isTransactionPending || // Transaction is pending confirmation
+    (utxoInfo !== null && utxoInfo.usable_utxos === 0) || // No fast messages available
     showConfirmation; // Confirmation dialog is open
 
   // Tooltip text for the send button
-  $: sendButtonTitle = isTransactionPending ? "Waiting for previous transaction to confirm" : "Send message/gift";
+  $: sendButtonTitle = utxoInfo !== null && utxoInfo.usable_utxos === 0 
+    ? "No fast messages available - need UTXOs to send" 
+    : utxoInfo === null 
+      ? "Loading UTXO information..." 
+      : "Send message/gift";
 
   // Function to handle input and enforce ASCII
   function handleInput(event: Event) {
@@ -233,6 +240,7 @@
                         {privateBalance}
                         {currencySymbol}
                         {showConfirmation}
+                        {utxoInfo}
                         on:confirm={confirmGiftAmount}
                         on:cancel={toggleFundsInput}
                         on:clear={clearGiftAmount}

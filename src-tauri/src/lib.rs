@@ -18,6 +18,7 @@
 // - Zero-trust messaging: Only verified messages are displayed, unverified messages are silently filtered
 // - MAJOR: Added parallel blockchain detection commands for automatic onboarding
 // - Added macOS window customization with almost black background for native titlebar appearance
+// - Added get_utxo_info command for Fast Messages feature
 
 mod credentials; // Added credentials module
 mod settings; // Added settings module
@@ -31,6 +32,7 @@ use crate::credentials::CredentialError; // Import credential error
 use crate::settings::SettingsError; // Import settings error
 use crate::identity_rpc::FormattedIdentity; // Corrected
 use crate::message_rpc::ChatMessage; // Corrected
+use crate::wallet_rpc::UtxoInfo; // Import UtxoInfo struct
 
 // Custom error type serializable for Tauri
 #[derive(Debug, serde::Serialize, thiserror::Error)]
@@ -211,6 +213,19 @@ async fn send_private_message(
     .map_err(CommandError::from)
 }
 
+// NEW command to get UTXO info for Fast Messages
+#[tauri::command]
+async fn get_utxo_info(
+    app: tauri::AppHandle,
+    address: String,
+) -> Result<UtxoInfo, CommandError> {
+    log::info!("get_utxo_info command received for address: {}", address);
+    let creds = crate::credentials::load_credentials(app).await?;
+    crate::wallet_rpc::get_utxo_info(creds.rpc_user, creds.rpc_pass, creds.rpc_port, address)
+        .await
+        .map_err(CommandError::from)
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     // TODO: Initialize logger here instead of in command
@@ -286,7 +301,8 @@ pub fn run() {
             crate::settings::load_conversations,
             crate::settings::save_messages_for_conversation,
             crate::settings::load_messages_for_conversation,
-            crate::settings::delete_chat_data
+            crate::settings::delete_chat_data,
+            get_utxo_info
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

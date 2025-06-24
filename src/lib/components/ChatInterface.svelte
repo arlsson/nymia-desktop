@@ -24,6 +24,7 @@
 // - Restructured layout to have ConversationsList and UserInfoSection in left sidebar.
 // - Right panel now takes full screen height with ConversationView/SettingsView.
 // - DYNAMIC CURRENCY: Added dynamic currency symbol support based on selected blockchain.
+// - Added Fast Messages feature with UTXO data polling (1-second intervals) and display integration
 
   import { createEventDispatcher, onMount, onDestroy } from 'svelte';
   import { invoke } from '@tauri-apps/api/core';
@@ -33,7 +34,7 @@
   import PersistencePromptModal from './chat/PersistencePromptModal.svelte'; // Import persistence modal
   import SettingsView from './settings/SettingsView.svelte'; // Import settings view
   import UserInfoSection from './chat/UserInfoSection.svelte'; // Import user info section
-  import type { FormattedIdentity, PrivateBalance, ChatMessage, Conversation } from '$lib/types';
+  import type { FormattedIdentity, PrivateBalance, ChatMessage, Conversation, UtxoInfo } from '$lib/types';
   import { getCurrencySymbol } from '$lib/utils/currencySymbol';
 
   // --- Props ---
@@ -44,6 +45,7 @@
 
   // --- Constants ---
   const POLLING_INTERVAL_MS = 30000; // 30 seconds
+  const UTXO_POLLING_INTERVAL_MS = 1000; // 1 second for UTXO data
 
   // --- Event dispatcher ---
   const dispatch = createEventDispatcher<{
@@ -62,6 +64,11 @@
   // Persistence State
   let showPersistencePrompt = false;
   let persistenceSetting: boolean | null = null; // null = setting not yet determined/loaded
+
+  // UTXO State for Fast Messages
+  let utxoInfo: UtxoInfo | null = null;
+  let isUtxoLoading = false;
+  let utxoPollingIntervalId: ReturnType<typeof setInterval> | null = null;
 
   // --- Data State (Initialized Empty) ---
   let conversations: Conversation[] = []; // Use the imported type
@@ -86,6 +93,7 @@
 
   onDestroy(() => {
       stopPolling();
+      stopUtxoPolling();
   });
 
   // --- Persistence Logic ---
@@ -223,6 +231,9 @@
       console.log(`ChatInterface: Starting message polling every ${POLLING_INTERVAL_MS / 1000}s`);
       fetchNewMessages(); // Initial fetch
       pollingIntervalId = setInterval(fetchNewMessages, POLLING_INTERVAL_MS);
+      
+      // Also start UTXO polling for Fast Messages
+      startUtxoPolling();
   }
 
   function stopPolling() {
@@ -423,7 +434,6 @@
         console.log(`ChatInterface: Setting pending state. Current block height: ${blockHeight}`);
         isTransactionPending = true;
         pendingSinceBlock = blockHeight; // Capture the block height *at the time of sending*
-        // <------------------------------------
 
     } catch (error) {
         console.error("ChatInterface: Error sending message via backend:", error);
@@ -660,6 +670,53 @@
       });
   }
 
+  // --- UTXO Polling Logic ---
+  function startUtxoPolling() {
+      if (!loggedInUserPrivateAddress) {
+          console.log("ChatInterface: Cannot start UTXO polling, no private address available.");
+          return;
+      }
+      stopUtxoPolling(); // Ensure no duplicate intervals
+      console.log(`ChatInterface: Starting UTXO polling every ${UTXO_POLLING_INTERVAL_MS / 1000}s`);
+      fetchUtxoInfo(); // Initial fetch
+      utxoPollingIntervalId = setInterval(fetchUtxoInfo, UTXO_POLLING_INTERVAL_MS);
+  }
+
+  function stopUtxoPolling() {
+      if (utxoPollingIntervalId) {
+          console.log("ChatInterface: Stopping UTXO polling.");
+          clearInterval(utxoPollingIntervalId);
+          utxoPollingIntervalId = null;
+      }
+  }
+
+  async function fetchUtxoInfo() {
+      if (!loggedInUserPrivateAddress || isUtxoLoading) {
+          if (isUtxoLoading) console.log("ChatInterface: Skipping UTXO fetch, already loading.");
+          return;
+      }
+
+      isUtxoLoading = true;
+      console.log("ChatInterface: Fetching UTXO info...");
+
+      try {
+          const newUtxoInfo = await invoke<UtxoInfo>('get_utxo_info', {
+              address: loggedInUserPrivateAddress
+          });
+
+          utxoInfo = newUtxoInfo;
+          console.log(`ChatInterface: UTXO info updated - Usable: ${utxoInfo.usable_utxos}, Total: ${utxoInfo.total_utxos}`);
+
+      } catch (error) {
+          console.error("ChatInterface: Error fetching UTXO info:", error);
+          // Keep previous utxoInfo on error, don't reset to null
+      } finally {
+          isUtxoLoading = false;
+      }
+  }
+
+
+
 </script>
 
 <div class="flex h-screen font-sans text-sm">
@@ -682,6 +739,8 @@
       blockHeight={blockHeight}
       isTransactionPending={isTransactionPending}
       currencySymbol={currencySymbol}
+      utxoInfo={utxoInfo}
+      isUtxoLoading={isUtxoLoading}
       on:logout={handleLogout}
       on:settings={handleSettings}
     />
@@ -705,6 +764,7 @@
             isTransactionPending={isTransactionPending}
             verusIdName={loggedInIdentity?.formatted_name || ''}
             currencySymbol={currencySymbol}
+            utxoInfo={utxoInfo}
             on:sendMessage={handleSendMessage}
         />
     {/if}

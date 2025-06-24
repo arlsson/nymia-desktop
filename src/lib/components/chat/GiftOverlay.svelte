@@ -6,10 +6,11 @@
 // - Added MAX button that selects complete balance minus transaction fee
 // - Improved layout with better spacing and visual hierarchy
 // - Enhanced error handling and validation display
+// - Added Fast Messages impact warning when gifts may affect available UTXOs
 
   import { createEventDispatcher } from 'svelte';
-  import { Gift, AlertTriangle } from 'lucide-svelte';
-  import type { PrivateBalance } from '$lib/types';
+  import { Gift, AlertTriangle, Zap } from 'lucide-svelte';
+  import type { PrivateBalance, UtxoInfo } from '$lib/types';
   import Button from '../Button.svelte';
 
   // --- Props ---
@@ -18,6 +19,7 @@
   export let privateBalance: PrivateBalance = null;
   export let currencySymbol: string = 'VRSC';
   export let showConfirmation: boolean = false;
+  export let utxoInfo: UtxoInfo | null = null; // NEW: UTXO information for Fast Messages impact
 
   // --- Constants ---
   const TX_FEE = 0.0001;
@@ -35,6 +37,9 @@
 
   // Calculate maximum sendable amount (balance - fee)
   $: maxSendableAmount = privateBalance !== null ? Math.max(0, privateBalance - TX_FEE) : 0;
+
+  // Show impact warning when gift amount is entered
+  $: showFastMessagesImpact = utxoInfo && amountToSend && amountToSend > 0;
 
   // Check if amount exceeds balance
   $: if (amountToSend !== null && privateBalance !== null) {
@@ -134,6 +139,16 @@
            </div>
          </div>
       </div>
+
+      <!-- Fast Messages Impact Warning (NEW) -->
+      {#if showFastMessagesImpact}
+        <div class="flex items-center space-x-2 p-2 bg-blue-900/20 border border-blue-700/30 rounded-lg">
+          <Zap size={12} class="text-blue-400 flex-shrink-0"/>
+          <div class="text-xs text-blue-300">
+            <span class="font-medium">May affect fast messages</span> - this gift may reduce available UTXOs
+          </div>
+        </div>
+      {/if}
 
       <!-- Error Message -->
       {#if insufficientBalanceError}

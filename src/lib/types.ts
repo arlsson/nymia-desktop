@@ -7,6 +7,7 @@
 // - BREAKING: Updated ChatMessage to use Unix timestamp in seconds for timestamp-based ordering.
 // - Removed sentAtBlockHeight field as block-height sorting is replaced by timestamp sorting.
 // - MAJOR: Added blockchain detection types for new automatic onboarding system
+// - Added UtxoInfo type for Fast Messages feature
 
 // Credentials for Verus RPC connection
 export interface Credentials {
@@ -64,6 +65,15 @@ export type Conversation = {
     recipient_private_address: string; // The recipient's z-address needed for sending
     unread?: boolean;   // Optional flag for unread messages
   }; 
+
+// NEW: UTXO information structure for Fast Messages feature
+export interface UtxoInfo {
+    total_utxos: number;           // Total count including dust
+    usable_utxos: number;          // Count with amount >= 0.0001 (Fast Messages count)
+    total_spendable_value: number; // Sum of usable UTXOs only
+    largest_utxo: number;          // Largest single UTXO amount
+    smallest_utxo: number;         // Smallest usable UTXO amount (>= 0.0001)
+}
 
 // NEW: Blockchain detection types
 export type BlockchainStatus = 'Available' | 'Loading' | 'Error' | 'NotFound' | 'Timeout' | 'ParseError';

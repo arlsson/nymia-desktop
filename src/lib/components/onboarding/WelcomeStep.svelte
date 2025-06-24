@@ -44,7 +44,7 @@ onMount(() => {
       <img 
         src="/nymia-icon.webp" 
         alt="Nymia Icon" 
-        class="w-12 h-12 mb-6" 
+        class="w-12 mb-6" 
         transition:fly={{ y: -20, duration: 1200, delay: 0, easing: quintOut }}
       />
     </div>
@@ -53,7 +53,7 @@ onMount(() => {
   {#if visible}
     <!-- Tagline Image -->
     <img 
-      src="/tagline.webp" 
+      src="/tagline-new.webp" 
       alt="Messages you can't see. Payments you can't trace. Freedom I can feel." 
       class="w-72 mb-16" 
       transition:fly={{ x: -20, duration: 1200, delay: 400, easing: quintOut }}
@@ -63,14 +63,14 @@ onMount(() => {
   {#if visible}
     <!-- Welcome Text -->
     <div 
-      class="text-sm text-dark-text-primary tracking-tight select-none cursor-default"
+      class="text-sm text-white/55 tracking-tight select-none cursor-default"
       transition:fade={{ duration: 800, delay: 700 }}
     >
       <p class="mb-1">Welcome, full&#8209;node runner.</p>
       <p>
         Your privacy starts now — 
         <button 
-          class="text-white/45 hover:text-white/70 cursor-pointer"
+          class="text-white/85 hover:text-white/95 cursor-pointer"
           on:click={() => dispatch('showPrivacyInfo')}
         >
           learn why.
