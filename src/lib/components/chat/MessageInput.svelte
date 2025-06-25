@@ -33,7 +33,6 @@
 
   // --- Props ---
   export let privateBalance: PrivateBalance = null; // Add privateBalance prop
-  export let isTransactionPending: boolean = false; // Add pending state prop
   export let verusIdName: string; // Current user's VerusID name for dynamic message limit calculation
   export let currencySymbol: string = 'VRSC'; // Dynamic currency symbol
   export let utxoInfo: UtxoInfo | null = null; // NEW: UTXO information for Fast Messages impact

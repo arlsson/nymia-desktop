@@ -10,13 +10,16 @@
 // - Added dynamic currency symbol support by tracking selected blockchain ID and passing to ChatInterface.
 // - Modified to start at blockchain detection step (instead of VerusID step) when stored credentials are found.
 // - Fixed first launch to start at welcome step instead of blockchain detection step.
+// - Added pending balance (0 confirmations) fetching and polling alongside private balance
+// - Updated balance polling to fetch both balances in parallel for efficiency
+// - Changed balance polling frequency from 15 seconds to 1 second for real-time updates
 
 	import { onMount, onDestroy } from 'svelte';
 	import { invoke } from '@tauri-apps/api/core';
     import OnboardingFlow from '$lib/components/OnboardingFlow.svelte';
     // import LoggedInView from '$lib/components/LoggedInView.svelte'; // Removed
     import ChatInterface from '$lib/components/ChatInterface.svelte'; // Added
-    import type { Credentials, FormattedIdentity, LoginPayload, PrivateBalance } from '$lib/types';
+    import type { Credentials, FormattedIdentity, LoginPayload, PrivateBalance, PendingBalance } from '$lib/types';
 
     // --- Types --- 
     type AppStatus = 'loading' | 'onboarding' | 'loggedIn' | 'error';
@@ -35,6 +38,7 @@
     let loggedInIdentity: FormattedIdentity | null = null;
     let currentBlockHeight: number | null = null;
     let currentPrivateBalance: PrivateBalance = null;
+    let currentPendingBalance: PendingBalance = null; // NEW: Balance with 0 confirmations
     let selectedBlockchainId: string | null = null; // Track selected blockchain for currency symbol
     let blockCheckIntervalId: ReturnType<typeof setInterval> | null = null;
 
@@ -84,22 +88,29 @@
         selectedBlockchainId = event.detail.blockchainId; // Capture selected blockchain
         appStatus = 'loggedIn';
         currentPrivateBalance = null; // Reset balance before fetching
+        currentPendingBalance = null; // Reset pending balance before fetching
 
-        // Fetch balance immediately after login
+        // Fetch balances immediately after login
         if (loggedInIdentity?.private_address) {
             try {
-                currentPrivateBalance = await invoke<number>('get_private_balance', {
-                     address: loggedInIdentity.private_address 
-                });
-                console.log("Fetched private balance successfully:", currentPrivateBalance);
+                // Fetch both balances in parallel
+                const [privateBalance, pendingBalance] = await Promise.all([
+                    invoke<number>('get_private_balance', { address: loggedInIdentity.private_address }),
+                    invoke<number>('get_pending_balance', { address: loggedInIdentity.private_address })
+                ]);
+                currentPrivateBalance = privateBalance;
+                currentPendingBalance = pendingBalance;
+                console.log("Fetched balances successfully - Private:", currentPrivateBalance, "Pending:", currentPendingBalance);
             } catch (balanceError) {
-                 console.error("Failed to fetch initial private balance:", balanceError);
+                 console.error("Failed to fetch initial balances:", balanceError);
                  currentPrivateBalance = null; // Keep it null on error
+                 currentPendingBalance = null;
                  // TODO: Show non-critical error to user?
             }
         } else {
             console.warn("Logged in, but no private address found for identity:", loggedInIdentity?.formatted_name);
             currentPrivateBalance = null; // Ensure balance is null if no address
+            currentPendingBalance = null;
         }
         
         // Start periodic check (or ensure it continues if already started by onMount)
@@ -134,6 +145,7 @@
         
         loggedInIdentity = null;
         currentPrivateBalance = null; // Clear balance on logout
+        currentPendingBalance = null; // Clear pending balance on logout
         selectedBlockchainId = null; // Clear blockchain selection on logout
         appStatus = 'onboarding';
         // Restart timer as we are back in an authenticated state (RPC creds still valid)
@@ -149,9 +161,9 @@
         }
         
         stopBlockCheckTimer(); // Clear any existing timer first
-        console.log("Starting periodic block/balance check (every 15s).");
+        console.log("Starting periodic block/balance check (every 1s).");
         performChecks(); // Perform initial check immediately
-        blockCheckIntervalId = setInterval(performChecks, 15000); // Check every 15 seconds
+        blockCheckIntervalId = setInterval(performChecks, 1000); // Check every 1 second
     }
 
     function stopBlockCheckTimer() {
@@ -193,18 +205,22 @@
             currentBlockHeight = blockHeightResult;
             console.log(`Block height updated: ${currentBlockHeight}`);
 
-            // Fetch balance only if logged in and private address exists
+            // Fetch balances only if logged in and private address exists
             if (appStatus === 'loggedIn' && loggedInIdentity?.private_address) {
                  try {
-                    const balanceResult = await invoke<number>('get_private_balance', {
-                         address: loggedInIdentity.private_address 
-                    });
-                    currentPrivateBalance = balanceResult;
-                    console.log(`Private balance updated: ${currentPrivateBalance}`);
+                    // Fetch both balances in parallel
+                    const [privateBalance, pendingBalance] = await Promise.all([
+                        invoke<number>('get_private_balance', { address: loggedInIdentity.private_address }),
+                        invoke<number>('get_pending_balance', { address: loggedInIdentity.private_address })
+                    ]);
+                    currentPrivateBalance = privateBalance;
+                    currentPendingBalance = pendingBalance;
+                    console.log(`Balances updated - Private: ${currentPrivateBalance}, Pending: ${currentPendingBalance}`);
                  } catch (balanceError) {
                     console.error("Periodic balance check failed:", balanceError);
                     // Don't stop timer, maybe it recovers, but maybe set balance to null?
                     // currentPrivateBalance = null;
+                    // currentPendingBalance = null;
                  }
             }
         } catch (error) { // If core check (getblockcount) fails, stop the timer
@@ -276,6 +292,7 @@
             loggedInIdentity={loggedInIdentity}
             bind:blockHeight={currentBlockHeight}
             privateBalance={currentPrivateBalance}
+            pendingBalance={currentPendingBalance}
             blockchainId={selectedBlockchainId}
             on:logout={handleLogout} 
         />

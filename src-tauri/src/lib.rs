@@ -142,6 +142,19 @@ async fn get_private_balance(
         .map_err(CommandError::from)
 }
 
+// NEW command to get pending balance (0 confirmations)
+#[tauri::command]
+async fn get_pending_balance(
+    app: tauri::AppHandle,
+    address: String,
+) -> Result<f64, CommandError> {
+    log::info!("get_pending_balance command received for address: {}", address);
+    let creds = crate::credentials::load_credentials(app).await?;
+    crate::wallet_rpc::get_pending_balance(creds.rpc_user, creds.rpc_pass, creds.rpc_port, address)
+        .await
+        .map_err(CommandError::from)
+}
+
 // NEW Command: Check Identity Eligibility
 #[tauri::command]
 async fn check_identity_eligibility(
@@ -290,6 +303,7 @@ pub fn run() {
             crate::credentials::detect_blockchain_from_path, // NEW: Custom path detection
             get_login_identities, // Correct name used here
             get_private_balance, // Add the new balance command
+            get_pending_balance, // Add the new pending balance command
             check_identity_eligibility,
             get_chat_history,
             get_new_received_messages,

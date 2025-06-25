@@ -46,6 +46,9 @@ export type OnboardingStep = 'welcome' | 'responsibility' | 'blockchain' | 'veru
 // Type alias for the private balance
 export type PrivateBalance = number | null;
 
+// Type alias for the pending balance (0 confirmations)
+export type PendingBalance = number | null;
+
 // Structure for chat messages (with timestamp-based ordering)
 export interface ChatMessage {
     id: string; // txid or generated ID for sent messages
