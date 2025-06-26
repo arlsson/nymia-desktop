@@ -83,7 +83,7 @@
 
   <!-- Row 2: Pending Balance (NEW - shown only when different from private balance) -->
   {#if showPendingBalance}
-    <div class="flex items-center justify-between text-sm mb-2">
+    <div class="flex items-center justify-between text-xs mb-2">
       <span class="text-dark-text-primary font-medium cursor-default select-none">Total</span>
       <div class="flex items-center">
         <Loader size={16} class="mr-2 text-white animate-spin" />
