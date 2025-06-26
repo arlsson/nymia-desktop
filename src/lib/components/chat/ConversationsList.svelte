@@ -70,7 +70,7 @@
     {#each conversations as conversation (conversation.id)}
       <button 
         on:click={() => handleSelect(conversation.id)}
-        class={`w-full text-left px-3 py-3 flex items-center group my-1 rounded-md
+        class={`w-full text-left px-3 pl-2 py-2 flex items-center group my-1 rounded-md
         ${selectedConversationId === conversation.id ? 
           'bg-white/5' : 
           'hover:bg-white/5'}`}

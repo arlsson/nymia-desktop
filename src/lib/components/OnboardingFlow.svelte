@@ -22,6 +22,8 @@
 // - LATEST: Added ResponsibilityStep between Welcome and Blockchain Detection steps
 // - Updated onboarding flow to Welcome → Responsibility → Detection → VerusID (4 steps total)
 // - Added responsibility disclosure with "I Understand" button
+// - Added currency symbol support - passes blockchain-specific ticker to VerusID step for balance display
+// - Fixed dual scrollbar issue: only blockchain step allows outer scrolling, other steps use fixed layout
 
   import { createEventDispatcher } from 'svelte';
   import { slide } from 'svelte/transition';
@@ -45,6 +47,9 @@
       LoginPayload, 
       OnboardingStep 
   } from '$lib/types';
+  
+  // Import Currency Symbol Utility
+  import { getCurrencySymbol } from '$lib/utils/currencySymbol';
 
   // --- Types ---
   type Step = 'welcome' | 'responsibility' | 'blockchain' | 'verusid';
@@ -87,6 +92,9 @@
       // Keep the detection state for navigation logic but reset selection
       blockchainSelected = false;
   }
+
+  // Calculate currency symbol based on selected blockchain
+  $: currencySymbol = getCurrencySymbol(selectedBlockchainId);
 
   // --- Step Navigation ---
   function goToStep(step: OnboardingStep) {
@@ -211,9 +219,9 @@
       <!-- Top padding -->
       <div class="pt-12 px-10"></div>
 
-      <!-- Main Content Area (scrollable if needed) -->
-      <div class="flex-grow px-10 pt-8 overflow-y-auto">
-          <div class="step-container mx-auto" style="max-width: 450px;">
+      <!-- Main Content Area (conditional scrolling: only blockchain step can scroll) -->
+      <div class="flex-grow px-10 pt-8 {currentStep === 'blockchain' ? 'overflow-y-auto' : 'overflow-y-hidden'}">
+          <div class="step-container mx-auto h-full flex flex-col" style="max-width: 450px;">
               {#if currentStep === 'welcome'}
                  <div transition:slide|local={{ duration: 300, easing: quintOut }}>
                      <WelcomeStep 
@@ -238,7 +246,8 @@
               {:else if currentStep === 'verusid'}
                  <div transition:slide|local={{ duration: 300, easing: quintOut }}>
                      <VerusIdStep 
-                        credentials={currentCredentials} 
+                        credentials={currentCredentials}
+                        currencySymbol={currencySymbol}
                         on:idSelected={handleIdSelected}
                      />
                  </div>
@@ -287,18 +296,14 @@
   </div>
 
    <!-- Right Panel: Decorative Background -->
-   <div class="w-1/2 relative overflow-hidden bg-[#419A6A]">
+   <div class="w-1/2 relative overflow-hidden bg-black">
        <!-- Background elements... -->
-        <div 
-            class="absolute inset-0 opacity-15 mix-blend-soft-light bg-grid-pattern animate-pulse-slow"
-            style="background-image: radial-gradient(#5ab88a 1px, transparent 1px); background-size: 25px 25px;"
-        >
-        </div>
+       
      
         <!-- Onboarding video filling the panel -->
         <div class="absolute inset-0">
             <video 
-                src="/onboarding-1.mp4" 
+                src="/onboarding-1-apple.mp4" 
                 autoplay 
                 muted 
                 loop 
@@ -319,46 +324,8 @@
 {/if}
 
 <style>
-   /* Background animation keyframes */
-  @keyframes pulse-slow {
-    0%, 100% { opacity: 0.15; }
-    50% { opacity: 0.3; }
-  }
+ 
   
-  .animate-pulse-slow {
-    animation: pulse-slow 10s ease-in-out infinite;
-  }
-  
-  @keyframes float-slow {
-    0% { 
-      transform: translate(0, 0) scale(1); 
-    }
-    25% { 
-      transform: translate(var(--float-x, 40px), var(--float-y, 60px)) scale(1.08); 
-    }
-    50% { 
-      transform: translate(var(--float-x2, -35px), var(--float-y2, 40px)) scale(1.04); 
-    }
-    75% { 
-      transform: translate(var(--float-x3, -45px), var(--float-y3, -40px)) scale(0.96); 
-    }
-    100% { 
-      transform: translate(0, 0) scale(1); 
-    }
-  }
-  
-  .animate-float-slow {
-    animation-name: float-slow;
-    animation-duration: var(--float-duration, 20s);
-    animation-delay: var(--float-delay, 0s);
-    animation-iteration-count: infinite;
-    animation-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
-    will-change: transform;
-  }
-  
-  .bg-gradient-radial {
-    background-image: radial-gradient(circle, var(--tw-gradient-from) 0%, transparent 70%);
-  }
 
   /* Onboarding video styling to fill the complete panel */
   .onboarding-video {

@@ -1,28 +1,32 @@
 // File: src-tauri/src/identity_rpc.rs
 // Description: Handles VerusID identity-related RPC calls.
 // Changes:
-// - Moved FormattedIdentity struct, get_login_identities, and check_identity_eligibility functions from verus_rpc.rs.
-// - Added necessary use statements for rpc_client, serde, and serde_json.
+// - Separated identity fetching from balance fetching for progressive loading
+// - Added get_login_identities_fast for immediate name loading
+// - Updated get_login_identities to maintain compatibility
+// - Added get_identity_balance for individual balance fetching
 
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use super::rpc_client::{make_rpc_call, VerusRpcError};
+use super::wallet_rpc::get_private_balance;
 
-// Struct to hold formatted identity name and addresses
+// Updated struct to include balance for dropdown display
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct FormattedIdentity {
-    pub formatted_name: String,
-    pub i_address: String, // Include original i-address for reference
-    pub private_address: Option<String>, // Added optional private address
+    pub formatted_name: String,        // Transformed from fullyqualifiedname
+    pub i_address: String,            // identityaddress
+    pub private_address: String,      // privateaddress (required, not optional)
+    pub balance: Option<f64>,         // Private balance (None while loading)
 }
 
-// Updated function to include private address and sub-ID formatting
-pub async fn get_login_identities(
+// NEW: Fast function to get identities without balances for progressive loading
+pub async fn get_login_identities_fast(
     rpc_user: String,
     rpc_pass: String,
     rpc_port: u16,
 ) -> Result<Vec<FormattedIdentity>, VerusRpcError> {
-    log::info!("Fetching identities for login selection...");
+    log::info!("Fetching identities (fast mode - no balances)...");
 
     let identities_raw: Vec<Value> = make_rpc_call(
         &rpc_user,
@@ -35,81 +39,164 @@ pub async fn get_login_identities(
 
     log::info!("Received {} raw identity entries from listidentities.", identities_raw.len());
 
-    let mut formatted_identities = Vec::new();
+    let mut qualifying_identities = Vec::new();
 
+    // Step 1: Filter identities based on new criteria
     for identity_obj in identities_raw {
-        log::debug!("Raw identity: {}", serde_json::to_string(&identity_obj).unwrap_or_default());
-
         if let Some(identity_details) = identity_obj.get("identity") {
-            let private_address_opt = identity_details.get("privateaddress")
+            // Check all required fields and conditions
+            let private_address = identity_details.get("privateaddress")
                 .and_then(|v| v.as_str())
-                .filter(|s| !s.is_empty())
-                .map(String::from);
+                .filter(|s| !s.is_empty());
+            
+            let can_spend_for = identity_obj.get("canspendfor")
+                .and_then(|v| v.as_bool())
+                .unwrap_or(false);
+            
+            let can_sign_for = identity_obj.get("cansignfor")
+                .and_then(|v| v.as_bool())
+                .unwrap_or(false);
 
-            if let Some(private_address) = private_address_opt {
-                if let (Some(name), Some(i_address), Some(parent_id), Some(system_id)) = (
-                    identity_details.get("name").and_then(|v| v.as_str()),
-                    identity_details.get("identityaddress").and_then(|v| v.as_str()),
-                    identity_details.get("parent").and_then(|v| v.as_str()),
-                    identity_details.get("systemid").and_then(|v| v.as_str()),
-                ) {
-                    log::debug!("Processing identity with private address: {} ({})", name, i_address);
+            let identity_address = identity_details.get("identityaddress")
+                .and_then(|v| v.as_str());
 
-                    let mut formatted_name = format!("{}@", name); // Default format
-
-                    // Check if it's a sub-ID
-                    if parent_id != system_id {
-                        log::debug!("Identity '{}' is a sub-ID. Fetching parent '{}'...", name, parent_id);
-                        // Make the second RPC call to get the parent identity details
-                        match make_rpc_call::<Value>(&rpc_user, &rpc_pass, rpc_port, "getidentity", vec![json!(parent_id)]).await {
-                            Ok(parent_identity_result) => {
-                                // Extract parent name from its nested identity object
-                                if let Some(parent_name) = parent_identity_result
-                                    .get("identity")
-                                    .and_then(|id_details| id_details.get("name"))
-                                    .and_then(|n| n.as_str()) 
-                                {
-                                    log::debug!("Parent name found: {}", parent_name);
-                                    formatted_name = format!("{}.{}@", name, parent_name);
-                                } else {
-                                    log::error!("Failed to extract parent name for ID '{}' from parent '{}'. Using default format.", name, parent_id);
-                                    // Keep the default format as fallback
-                                }
-                            },
-                            Err(e) => {
-                                log::error!("RPC call failed for getidentity({}): {:?}. Using default format for '{}'.", parent_id, e, name);
-                                // Keep the default format as fallback
-                            }
-                        }
-                    }
-
-                    formatted_identities.push(FormattedIdentity {
-                        formatted_name, // Use the potentially updated name
-                        i_address: i_address.to_string(),
-                        private_address: Some(private_address),
-                    });
+            // Apply enhanced filtering criteria
+            if let (Some(private_addr), Some(id_addr)) = (private_address, identity_address) {
+                if can_spend_for && can_sign_for {
+                    log::debug!("Identity {} qualifies: has private address, canspendfor=true, cansignfor=true", id_addr);
+                    qualifying_identities.push((id_addr.to_string(), private_addr.to_string()));
                 } else {
-                    log::warn!("Identity has private address but missing required fields (name, i-address, parent, systemid) in identity details.");
+                    log::debug!("Identity {} skipped: canspendfor={}, cansignfor={}", id_addr, can_spend_for, can_sign_for);
                 }
             } else {
-                log::debug!("Skipping identity '{}' because no private address found.", identity_details.get("name").and_then(|v| v.as_str()).unwrap_or("unknown"));
+                log::debug!("Identity skipped: missing private address or identity address");
             }
         } else {
             log::warn!("Skipping raw identity entry because 'identity' sub-object is missing.");
         }
     }
 
-    log::info!("Found {} identities with private addresses for login.", formatted_identities.len());
-
-    if formatted_identities.is_empty() {
-        log::error!("No VerusIDs with private addresses found in the wallet.");
+    if qualifying_identities.is_empty() {
+        log::error!("No qualifying VerusIDs found (must have private address, canspendfor=true, cansignfor=true).");
         return Err(VerusRpcError::Rpc {
             code: -1,
-            message: "No VerusIDs with private addresses found in your wallet.".to_string(),
+            message: "No eligible VerusIDs found. Identities must have private addresses and spending/signing permissions.".to_string(),
         });
     }
 
+    log::info!("Found {} qualifying identities, fetching names...", qualifying_identities.len());
+
+    // Step 2: Get formatted names using getidentity + fullyqualifiedname (NO BALANCE FETCHING)
+    let mut formatted_identities = Vec::new();
+
+    for (identity_address, private_address) in qualifying_identities {
+        log::debug!("Fetching name for identity: {}", identity_address);
+        
+        match make_rpc_call::<Value>(&rpc_user, &rpc_pass, rpc_port, "getidentity", vec![json!(identity_address)]).await {
+            Ok(identity_result) => {
+                if let Some(fully_qualified_name) = identity_result.get("fullyqualifiedname").and_then(|v| v.as_str()) {
+                    // Transform fullyqualifiedname by removing everything after the last dot before @
+                    let formatted_name = transform_fully_qualified_name(fully_qualified_name);
+                    
+                    log::debug!("Transformed '{}' -> '{}'", fully_qualified_name, formatted_name);
+                    
+                    formatted_identities.push(FormattedIdentity {
+                        formatted_name,
+                        i_address: identity_address.clone(),
+                        private_address: private_address.clone(),
+                        balance: None, // No balance fetching in fast mode
+                    });
+                } else {
+                    log::warn!("No fullyqualifiedname found for identity {}, skipping", identity_address);
+                }
+            }
+            Err(e) => {
+                log::error!("Failed to get identity details for {}: {:?}, skipping", identity_address, e);
+            }
+        }
+    }
+
+    if formatted_identities.is_empty() {
+        log::error!("No identities could be processed for name formatting.");
+        return Err(VerusRpcError::Rpc {
+            code: -1,
+            message: "Failed to process identity names.".to_string(),
+        });
+    }
+
+    log::info!("Successfully processed {} identities (fast mode)", formatted_identities.len());
+
     Ok(formatted_identities)
+}
+
+// NEW: Function to get balance for a specific identity
+pub async fn get_identity_balance(
+    rpc_user: String,
+    rpc_pass: String,
+    rpc_port: u16,
+    private_address: String,
+) -> Result<f64, VerusRpcError> {
+    log::debug!("Fetching balance for private address: {}", private_address);
+    get_private_balance(rpc_user, rpc_pass, rpc_port, private_address).await
+}
+
+// Updated function with new filtering logic and balance integration (MAINTAINED FOR COMPATIBILITY)
+pub async fn get_login_identities(
+    rpc_user: String,
+    rpc_pass: String,
+    rpc_port: u16,
+) -> Result<Vec<FormattedIdentity>, VerusRpcError> {
+    log::info!("Fetching identities for login selection with enhanced filtering...");
+
+    // First get identities without balances
+    let mut identities = get_login_identities_fast(rpc_user.clone(), rpc_pass.clone(), rpc_port).await?;
+
+    // Then fetch balances for all identities
+    for identity in &mut identities {
+        log::debug!("Fetching balance for {}", identity.private_address);
+        
+        match get_private_balance(rpc_user.clone(), rpc_pass.clone(), rpc_port, identity.private_address.clone()).await {
+            Ok(balance) => {
+                identity.balance = Some(balance);
+                log::debug!("Balance for {}: {:.5}", identity.formatted_name, balance);
+            }
+            Err(e) => {
+                log::warn!("Failed to fetch balance for {}: {:?}, will show '-'", identity.formatted_name, e);
+                identity.balance = None; // Will be displayed as "-" in UI
+            }
+        }
+    }
+
+    // Sort by balance (highest first), treating None as 0
+    identities.sort_by(|a, b| {
+        let balance_a = a.balance.unwrap_or(0.0);
+        let balance_b = b.balance.unwrap_or(0.0);
+        balance_b.partial_cmp(&balance_a).unwrap_or(std::cmp::Ordering::Equal)
+    });
+
+    log::info!("Successfully processed {} identities with balances", identities.len());
+
+    Ok(identities)
+}
+
+// Helper function to transform fullyqualifiedname
+fn transform_fully_qualified_name(fully_qualified_name: &str) -> String {
+    // Remove everything after the last dot before @
+    // Example: "JohnGomez.parent.VRSCTEST@" -> "JohnGomez.parent@"
+    // Example: "JohnGomez.VRSCTEST@" -> "JohnGomez@"
+    
+    if let Some(at_pos) = fully_qualified_name.rfind('@') {
+        let before_at = &fully_qualified_name[..at_pos];
+        if let Some(last_dot_pos) = before_at.rfind('.') {
+            format!("{}@", &before_at[..last_dot_pos])
+        } else {
+            // No dot found, return as-is (shouldn't happen based on requirements)
+            fully_qualified_name.to_string()
+        }
+    } else {
+        // No @ found, return as-is (malformed name)
+        fully_qualified_name.to_string()
+    }
 }
 
 // NEW function for New Chat: Check identity eligibility
@@ -176,7 +263,8 @@ pub async fn check_identity_eligibility(
                         Ok(FormattedIdentity {
                             formatted_name,
                             i_address: i_address.to_string(),
-                            private_address: private_address_opt,
+                            private_address: private_address_opt.unwrap(),
+                            balance: None,
                         })
                     } else {
                         log::warn!("Identity {} found but missing required fields.", target_identity_name);
