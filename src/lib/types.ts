@@ -20,7 +20,8 @@ export interface Credentials {
 export interface FormattedIdentity {
     formatted_name: string;
     i_address: string;
-    private_address: string | null; 
+    private_address: string; // Now required (not nullable)
+    balance: number | null; // Private balance (null while loading or on error)
 }
 
 // Generic structure for dropdown options
@@ -28,6 +29,7 @@ export interface DropdownOption {
     id: string | number | null;
     name: string;
     enabled: boolean;
+    balance?: string | null; // Optional balance display (formatted string)
 }
 
 // Payload for successful login event

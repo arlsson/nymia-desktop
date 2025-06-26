@@ -115,9 +115,12 @@
           <!-- Tooltip positioned relative to icon -->
           {#if showTooltip}
             <div class="absolute bottom-6  bg-black border border-dark-border-primary rounded-lg p-3 shadow-lg w-64 z-50 cursor-default select-none pointer-events-none">
-              <div class="text-sm text-dark-text-primary mb-2 font-semibold">Fast Messages</div>
+              <div class="text-sm text-dark-text-primary mb-2 font-semibold flex items-center">
+                <FastForward size={16} class="mr-1 text-white/50" />
+                Fast Messages
+              </div>
               <div class="text-xs text-dark-text-secondary leading-relaxed">
-                Fast Messages are UTXOs (≥0.0001) that can send immediate transactions without waiting for confirmations.
+                Fast Messages are UTXOs (≥0.0001) that can send immediate transactions (messages) without waiting for a confirmation.
                 {#if utxoInfo}
                   <div class="mt-2 pt-2 border-t border-dark-border-primary">
                     <div class="text-dark-text-primary">Current breakdown:</div>

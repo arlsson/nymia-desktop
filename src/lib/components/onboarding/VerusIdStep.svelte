@@ -1,11 +1,14 @@
 <script lang="ts">
 // Component: src/lib/components/onboarding/VerusIdStep.svelte
-// Description: Handles fetching and selecting a VerusID.
+// Description: Handles fetching and selecting a VerusID with progressive balance loading.
 // Changes:
-// - Modified 'idSelected' event to dispatch the full FormattedIdentity object.
-// - Removed "Clear Authentication" buttons as they're no longer needed with automatic blockchain detection.
-// - Improved error handling with user-friendly messages for credential and connection issues
-// - Added specific error message for "Credentials not found" to guide user back to blockchain step
+// - Implemented progressive loading: skeleton → names → balances
+// - Uses get_login_identities_fast for immediate name loading
+// - Fetches individual balances using get_identity_balance in parallel
+// - Shows skeleton loading during name fetch and balance loading states
+// - Sorts final list by balance (highest first) after all balances load
+// - Enhanced UX with smooth loading transitions and real-time updates
+// - Added currency symbol support - balances now display with proper ticker (e.g., "12.5 VRSC")
 
     import { createEventDispatcher, onMount } from 'svelte';
     import { invoke } from '@tauri-apps/api/core';
@@ -16,9 +19,11 @@
 
     // --- Types --- (Removed local definitions)
     type FetchStatus = 'idle' | 'fetching' | 'success' | 'error';
+    type BalanceLoadingStatus = 'loading' | 'loaded' | 'error';
 
     // --- Props ---
     export let credentials: Credentials | null = null; // Needed to fetch IDs
+    export let currencySymbol: string = 'VRSC'; // Currency symbol for balance display
 
     // --- State ---
     let loginIdentities: FormattedIdentity[] = [];
@@ -26,6 +31,8 @@
     let selectedIdentityIAddress: string | null = null; // Keep this for dropdown binding
     let fetchStatus: FetchStatus = 'idle';
     let fetchError: string | null = null;
+    let balanceLoadingStatus: Map<string, BalanceLoadingStatus> = new Map(); // Track balance loading per identity
+    let showingSkeleton = false;
 
     // --- Event Dispatcher ---
     const dispatch = createEventDispatcher<{
@@ -44,6 +51,21 @@
     });
 
     // --- Logic ---
+    function formatBalance(balance: number | null, iAddress: string): string | null {
+        const loadingStatus = balanceLoadingStatus.get(iAddress);
+        
+        if (loadingStatus === 'loading') {
+            return 'skeleton'; // Special value for skeleton display
+        }
+        
+        if (balance === null || loadingStatus === 'error') {
+            return null; // Will show "-" in UI
+        }
+        
+        const formattedAmount = balance.toFixed(5).replace(/\.?0+$/, ''); // Remove trailing zeros after decimal
+        return `${formattedAmount} ${currencySymbol}`;
+    }
+
     async function fetchIdentities() {
         if (!credentials) { // Double check credentials exist
              console.error("VerusIdStep: Credentials missing, cannot fetch.");
@@ -52,33 +74,62 @@
              return;
         }
 
+        // Step 1: Show skeleton loading initially
         fetchStatus = 'fetching';
         fetchError = null;
+        showingSkeleton = true;
         loginIdentities = [];
-        loginIdentityOptions = [];
         selectedIdentityIAddress = null;
-        // Dispatch null initially or when re-fetching
-        dispatch('idSelected', { identity: null }); 
+        balanceLoadingStatus = new Map();
+        dispatch('idSelected', { identity: null });
+        
+        // Show skeleton dropdown options initially
+        loginIdentityOptions = Array.from({ length: 3 }, (_, i) => ({
+            id: `skeleton-${i}`,
+            name: 'Loading...', 
+            enabled: false,
+            balance: 'skeleton'
+        })); 
 
         try {
-            console.log("VerusIdStep: Fetching login identities...");
-            // Note: We use the credentials passed via prop, not internal state
-            // TODO: Replace 'get_formatted_login_identities' with the actual correct Tauri command name if different
-            const ids = await invoke<FormattedIdentity[]>('get_login_identities'); 
+            console.log("VerusIdStep: Fetching login identities (fast mode)...");
+            
+            // Step 2: Get identities without balances (fast)
+            const ids = await invoke<FormattedIdentity[]>('get_login_identities_fast'); 
             loginIdentities = ids;
+            
+            if (ids.length === 0) {
+                fetchError = "No eligible VerusIDs found. Identities must have private addresses and spending/signing permissions.";
+                fetchStatus = 'error';
+                showingSkeleton = false;
+                dispatch('idSelected', { identity: null });
+                return;
+            }
+
+            // Step 3: Show identities with skeleton balances
+            ids.forEach(id => {
+                balanceLoadingStatus.set(id.i_address, 'loading');
+            });
+            
             loginIdentityOptions = ids.map(id => ({ 
                 id: id.i_address, 
                 name: id.formatted_name, 
-                enabled: true 
+                enabled: true,
+                balance: formatBalance(id.balance, id.i_address) // Will return 'skeleton'
             }));
+            
             fetchStatus = 'success';
-            if (ids.length === 0) {
-                fetchError = "No VerusIDs with private addresses found in your wallet.";
-                dispatch('idSelected', { identity: null }); // Ensure parent knows none are selected
-            }
+            showingSkeleton = false;
+            
+            console.log("VerusIdStep: Names loaded, now fetching balances...");
+            
+            // Step 4: Fetch balances progressively
+            await fetchBalancesProgressively(ids);
+            
         } catch (error: any) {
             console.error("VerusIdStep: Failed to fetch login identities:", error);
             fetchStatus = 'error';
+            showingSkeleton = false;
             
             // Better error message handling with user-friendly messages
             let errorMessage = 'Unknown error occurred';
@@ -97,14 +148,62 @@
             // Check for specific credential-related errors and provide better messaging
             if (errorMessage.includes('Credentials not found') || errorMessage.includes('NotFound')) {
                 fetchError = 'Connection to blockchain lost. Please go back and reconnect to your blockchain.';
-            } else if (errorMessage.includes('No VerusIDs with private addresses found')) {
-                fetchError = 'No VerusIDs with private addresses found in your wallet.';
+            } else if (errorMessage.includes('No eligible VerusIDs found') || errorMessage.includes('No VerusIDs with private addresses found')) {
+                fetchError = 'No eligible VerusIDs found. Identities must have private addresses and spending/signing permissions.';
             } else {
                 fetchError = `Unable to load identities: ${errorMessage}`;
             }
             
             dispatch('idSelected', { identity: null }); // Ensure parent knows none are selected on error
         }
+    }
+
+    async function fetchBalancesProgressively(identities: FormattedIdentity[]) {
+        // Fetch all balances in parallel
+        const balancePromises = identities.map(async (identity) => {
+            try {
+                console.log(`Fetching balance for ${identity.formatted_name}...`);
+                const balance = await invoke<number>('get_identity_balance', { 
+                    privateAddress: identity.private_address 
+                });
+                
+                // Update the identity with balance
+                const updatedIdentity = { ...identity, balance };
+                const identityIndex = loginIdentities.findIndex(id => id.i_address === identity.i_address);
+                if (identityIndex !== -1) {
+                    loginIdentities[identityIndex] = updatedIdentity;
+                }
+                
+                // Update balance loading status
+                balanceLoadingStatus.set(identity.i_address, 'loaded');
+                
+                return { identity: updatedIdentity, success: true };
+            } catch (error) {
+                console.error(`Failed to fetch balance for ${identity.formatted_name}:`, error);
+                balanceLoadingStatus.set(identity.i_address, 'error');
+                return { identity, success: false };
+            }
+        });
+
+        // Wait for all balances to complete
+        const results = await Promise.allSettled(balancePromises);
+        
+        // Sort identities by balance (highest first)
+        loginIdentities.sort((a, b) => {
+            const balanceA = a.balance || 0;
+            const balanceB = b.balance || 0;
+            return balanceB - balanceA;
+        });
+        
+        // Update dropdown options with final balances and sorting
+        loginIdentityOptions = loginIdentities.map(id => ({ 
+            id: id.i_address, 
+            name: id.formatted_name, 
+            enabled: true,
+            balance: formatBalance(id.balance, id.i_address)
+        }));
+        
+        console.log("VerusIdStep: All balances loaded and sorted");
     }
 
     function handleIdSelection(event: CustomEvent<string | number | null>) {
@@ -131,18 +230,10 @@
         <svg class="w-4 h-4 text-blue-400 mr-2 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg">
             <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd"></path>
         </svg>
-        <span class="text-xs text-blue-300 select-none cursor-default">Only identities with a private address work with Nymia</span>
+        <span class="text-xs text-blue-300 select-none cursor-default">Only identities with private addresses work with Nymia</span>
     </div>
 
-    {#if fetchStatus === 'fetching'}
-        <div class="flex items-center justify-center text-dark-text-secondary space-x-2 py-4">
-            <svg class="animate-spin h-5 w-5 text-dark-text-secondary" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-            </svg>
-            <span>Loading Identities...</span>
-        </div>
-    {:else if fetchStatus === 'error' && fetchError}
+    {#if fetchStatus === 'error' && fetchError}
         <div class="mt-4 p-3 bg-red-900/40 border border-red-700/50 rounded-md text-center">
             <p class="text-sm font-medium text-red-300 select-none cursor-default">Error Loading Identities</p>
             <p class="text-xs text-red-400 select-none cursor-default">{fetchError}</p>
@@ -164,7 +255,7 @@
                 </button>
             {/if}
         </div>
-    {:else if fetchStatus === 'success' && loginIdentities.length > 0}
+    {:else if fetchStatus === 'fetching' || (fetchStatus === 'success' && loginIdentities.length > 0)}
         <CustomDropdown
             label="Select Identity"
             options={loginIdentityOptions}
@@ -174,8 +265,8 @@
         />
     {:else if fetchStatus === 'success' && loginIdentities.length === 0}
         <div class="mt-4 p-3 bg-yellow-900/40 border border-yellow-700/50 rounded-md text-center">
-            <p class="text-sm font-medium text-yellow-300 select-none cursor-default">No Login IDs Found</p>
-            <p class="text-xs text-yellow-400 select-none cursor-default">No VerusIDs with private addresses were found in your wallet.</p>
+            <p class="text-sm font-medium text-yellow-300 select-none cursor-default">No Eligible IDs Found</p>
+            <p class="text-xs text-yellow-400 select-none cursor-default">No VerusIDs with private addresses and required permissions were found in your wallet.</p>
         </div>
     {/if}
 </div>

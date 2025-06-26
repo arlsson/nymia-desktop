@@ -19,6 +19,7 @@
 // - MAJOR: Added parallel blockchain detection commands for automatic onboarding
 // - Added macOS window customization with almost black background for native titlebar appearance
 // - Added get_utxo_info command for Fast Messages feature
+// - Added progressive loading commands: get_login_identities_fast, get_identity_balance
 
 mod credentials; // Added credentials module
 mod settings; // Added settings module
@@ -115,7 +116,21 @@ async fn connect_verus_daemon(rpc_user: String, rpc_pass: String, rpc_port: u16)
         .map_err(CommandError::from)
 }
 
-// New command to get formatted identities
+// New command to get formatted identities (fast mode - no balances)
+#[tauri::command]
+async fn get_login_identities_fast(
+    app: tauri::AppHandle, // Need AppHandle to get stored credentials
+) -> Result<Vec<FormattedIdentity>, CommandError> {
+    log::info!("get_login_identities_fast command received");
+    // Load credentials first
+    let creds = crate::credentials::load_credentials(app).await?;
+    // Then call the RPC function
+    crate::identity_rpc::get_login_identities_fast(creds.rpc_user, creds.rpc_pass, creds.rpc_port)
+        .await
+        .map_err(CommandError::from)
+}
+
+// New command to get formatted identities (with balances - full mode)
 #[tauri::command]
 async fn get_login_identities(
     app: tauri::AppHandle, // Need AppHandle to get stored credentials
@@ -125,6 +140,19 @@ async fn get_login_identities(
     let creds = crate::credentials::load_credentials(app).await?;
     // Then call the RPC function
     crate::identity_rpc::get_login_identities(creds.rpc_user, creds.rpc_pass, creds.rpc_port) // Corrected path
+        .await
+        .map_err(CommandError::from)
+}
+
+// NEW command to get balance for a specific identity
+#[tauri::command]
+async fn get_identity_balance(
+    app: tauri::AppHandle, // Need AppHandle for credentials
+    private_address: String,
+) -> Result<f64, CommandError> {
+    log::info!("get_identity_balance command received for address: {}", private_address);
+    let creds = crate::credentials::load_credentials(app).await?;
+    crate::identity_rpc::get_identity_balance(creds.rpc_user, creds.rpc_pass, creds.rpc_port, private_address)
         .await
         .map_err(CommandError::from)
 }
@@ -301,7 +329,9 @@ pub fn run() {
             crate::credentials::detect_all_blockchains, // NEW: Parallel detection
             crate::credentials::select_folder_dialog, // NEW: Folder selection
             crate::credentials::detect_blockchain_from_path, // NEW: Custom path detection
+            get_login_identities_fast, // NEW: Fast loading without balances
             get_login_identities, // Correct name used here
+            get_identity_balance, // NEW: Individual balance fetching
             get_private_balance, // Add the new balance command
             get_pending_balance, // Add the new pending balance command
             check_identity_eligibility,
