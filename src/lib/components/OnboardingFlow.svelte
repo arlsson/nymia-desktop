@@ -339,7 +339,7 @@
         <!-- Onboarding video filling the panel -->
         <div class="absolute inset-0">
             <video 
-                src="/onboarding-1-apple.mp4" 
+                src="/onboarding-2-apple.mp4" 
                 autoplay 
                 muted 
                 loop 
