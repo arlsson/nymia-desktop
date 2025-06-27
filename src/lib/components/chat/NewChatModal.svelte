@@ -31,6 +31,7 @@
 	let foundHistory: ChatMessage[] | null = null;
 	let importHistory = true; // Default to checked as per PRD
     let checkAttempted = false; // Track if eligibility check was run
+    let inputElement: HTMLInputElement; // Reference to input element
 
 	// --- Events --- 
 	const dispatch = createEventDispatcher<{ 
@@ -42,9 +43,22 @@
     // Reset state when modal is opened/closed
     $: if (showModal) {
         resetState();
+        // Auto-focus input when modal opens
+        setTimeout(() => {
+            if (inputElement) {
+                inputElement.focus();
+            }
+        }, 100);
     } else {
         // Delay reset slightly on close to allow fade-out
         setTimeout(resetState, 300);
+    }
+
+    // Re-focus input after state changes (like after finding a user)
+    $: if (isSuccess && inputElement) {
+        setTimeout(() => {
+            inputElement.focus();
+        }, 50);
     }
 
     // Check for existing conversation reactively
@@ -168,16 +182,38 @@
 	}
 
     function handleInputKeydown(event: KeyboardEvent) {
+        console.log('Input keydown:', event.key, { isSuccess, isStartDisabled, isFindDisabled });
         if (event.key === 'Enter') {
             event.preventDefault(); // Always prevent default
             event.stopPropagation(); // Prevent event bubbling
             
             if (isSuccess && !isStartDisabled) {
+                console.log('Starting chat via Enter');
                 handleStartChat();
             } else if (!isSuccess && !isFindDisabled) {
+                console.log('Finding user via Enter');
                 handleFindUser();
+            } else {
+                console.log('Enter key ignored - conditions not met');
             }
             // If both conditions fail, we simply do nothing but still prevent default behavior
+        }
+    }
+
+    // Global keydown handler for the modal
+    function handleModalKeydown(event: CustomEvent<KeyboardEvent>) {
+        const keyboardEvent = event.detail;
+        if (keyboardEvent.key === 'Enter' && !isLoading) {
+            console.log('Modal keydown Enter:', { isSuccess, isStartDisabled, isFindDisabled });
+            if (isSuccess && !isStartDisabled) {
+                keyboardEvent.preventDefault();
+                keyboardEvent.stopPropagation();
+                handleStartChat();
+            } else if (!isSuccess && !isFindDisabled) {
+                keyboardEvent.preventDefault();
+                keyboardEvent.stopPropagation();
+                handleFindUser();
+            }
         }
     }
 </script>
@@ -186,6 +222,7 @@
 	show={showModal} 
 	size="sm" 
 	on:close={closeModal}
+	on:keydown={handleModalKeydown}
 >
 	<!-- Header -->
 	<svelte:fragment slot="header" let:modalHeaderId let:handleClose>
@@ -214,6 +251,7 @@
 						? 'border-brand-green bg-brand-green/5 text-brand-green focus:ring-brand-green/30 focus:border-brand-green/60' 
 						: 'border-dark-border-primary bg-dark-bg-primary text-dark-text-primary focus:ring-brand-green/30 focus:border-brand-green'} disabled:bg-dark-bg-primary disabled:cursor-not-allowed placeholder-dark-text-disabled"
 					on:keydown={handleInputKeydown}
+					bind:this={inputElement}
 				/>
 				<div class="absolute inset-0 rounded-lg bg-gradient-to-r from-transparent via-brand-green/5 to-transparent opacity-0 focus-within:opacity-100 transition-opacity duration-200 pointer-events-none {isSuccess ? 'opacity-30' : ''}"></div>
 			</div>
