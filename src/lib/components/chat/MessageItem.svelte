@@ -6,6 +6,8 @@
 // - Manages hover and copy states internally
 // - Handles both text messages and gift display
 // - Clean separation of individual message concerns
+// - FIXED: Added proper text overflow handling to prevent horizontal scrolling
+// - FIXED: Added right padding to prevent copy button overlap with text
 
   import GiftDisplay from './GiftDisplay.svelte';
   import type { ChatMessage } from '$lib/types';
@@ -75,7 +77,7 @@
   
   <!-- Message Text -->
   {#if message.text.trim()}
-    <div class="message-text text-dark-text-primary text-sm leading-relaxed font-mono relative">
+    <div class="message-text text-dark-text-primary text-sm leading-relaxed font-mono relative pr-8">
       {message.text}
       
       <!-- Copy Icon (appears on hover) or Copied feedback -->
@@ -99,11 +101,23 @@
 <style>
   .message-item {
     position: relative;
+    /* Ensure the item itself doesn't overflow horizontally */
+    max-width: 100%;
+    overflow: hidden;
   }
 
   .message-text {
     font-family: 'IBM Plex Mono', monospace;
-    word-wrap: break-word;
     line-height: 1.5;
+    /* Enhanced text wrapping to prevent horizontal overflow */
+    word-wrap: break-word;
+    word-break: break-word;
+    overflow-wrap: break-word;
+    hyphens: auto;
+    /* Ensure text doesn't overflow horizontally */
+    max-width: 100%;
+    overflow: hidden;
+    /* Add white-space handling for better text flow */
+    white-space: pre-wrap;
   }
 </style> 
