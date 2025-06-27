@@ -105,7 +105,7 @@
           variant="primary"
           on:click={handleAcknowledgeChatInfo}
         >
-          I Understand
+          Got It
         </Button>
       </div>
     </div>
