@@ -51,7 +51,7 @@
 
 <div class="flex flex-col h-full" style="background-color: #121214">
   <!-- Header/New Chat Button -->
-  <div class="p-3" style="background-color: #121214">
+  <div class="p-3 relative z-10" style="background-color: #121214">
     <button 
       on:click={handleNewChat}
       class={`w-full flex items-center justify-center py-2 px-3 border text-dark-text-primary rounded-md focus:outline-none focus:ring-2 focus:ring-brand-green focus:ring-offset-2 focus:ring-offset-dark-bg-secondary text-sm font-medium ${
