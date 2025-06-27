@@ -6,6 +6,7 @@
 // - Handles grouped messages from the same sender
 // - Includes avatar, sender name, and timestamp display
 // - Iterates through messages in the group
+// - FIXED: Added proper overflow handling to prevent horizontal scrolling
 
   import Avatar from '../Avatar.svelte';
   import MessageItem from './MessageItem.svelte';
@@ -30,7 +31,7 @@
     </div>
 
     <!-- Messages Content -->
-    <div class="flex-grow min-w-0">
+    <div class="flex-grow min-w-0 overflow-hidden">
       <!-- Group Header (sender name and timestamp) -->
       <div class="flex items-baseline mb-1">
         <span class="font-semibold text-dark-text-primary text-sm mr-2 cursor-default select-none">

@@ -15,9 +15,10 @@
 // - Updated background color to specific hex color #121214
 // - Removed empty state text (handled in ConversationView)
 // - Added animated highlight to New Chat button when no conversations exist
+// - Enhanced unread indicator with MessageSquareLock icon and glow effect
 
   import { createEventDispatcher } from 'svelte';
-  import { Plus } from 'lucide-svelte';
+  import { Plus, MessageSquareDiff } from 'lucide-svelte';
   import Avatar from '../Avatar.svelte';
 
   // --- Type (could be moved to $lib/types) ---
@@ -106,7 +107,12 @@
           <!-- Unread Indicator -->
           {#if conversation.unread}
             <div class="flex-shrink-0 ml-2">
-              <div class="w-2 h-2 bg-brand-green rounded-full" title="Unread messages"></div>
+              <div class="unread-icon-glow" title="Unread messages">
+                <MessageSquareDiff 
+                  size={22} 
+                  class="text-brand-green"
+                />
+              </div>
             </div>
           {/if}
         </div>
@@ -145,5 +151,20 @@
 
   .animate-pulse-glow {
     animation: pulse-glow 2s ease-in-out infinite;
+  }
+
+  /* Unread icon glow effect */
+  .unread-icon-glow {
+    filter: drop-shadow(0 0 4px rgba(34, 197, 94, 0.6));
+    animation: icon-glow 2s ease-in-out infinite;
+  }
+
+  @keyframes icon-glow {
+    0%, 100% {
+      filter: drop-shadow(0 0 4px rgba(34, 197, 94, 0.6));
+    }
+    50% {
+      filter: drop-shadow(0 0 8px rgba(34, 197, 94, 0.8));
+    }
   }
 </style> 

@@ -25,6 +25,8 @@
 // - Right panel now takes full screen height with ConversationView/SettingsView.
 // - DYNAMIC CURRENCY: Added dynamic currency symbol support based on selected blockchain.
 // - Added Fast Messages feature with UTXO data polling (1-second intervals) and display integration
+// - FIXED: Added proper overflow handling to prevent horizontal scrolling at layout level
+// - CONVERSATION SORTING: Added automatic sorting by most recent message timestamp (most recent first)
 
   import { createEventDispatcher, onMount, onDestroy } from 'svelte';
   import { invoke } from '@tauri-apps/api/core';
@@ -77,11 +79,38 @@
   let selectedMessages: ChatMessage[] = []; // Add declaration for computed messages
 
   // --- Computed State ---
-  $: existingConversationIds = conversations.map(c => c.id.toLowerCase());
+  $: existingConversationIds = sortedConversations.map(c => c.id.toLowerCase());
   $: loggedInUserPrivateAddress = loggedInIdentity?.private_address;
   $: loggedInUserIdentityName = loggedInIdentity?.formatted_name;
   $: loggedInUserIAddress = loggedInIdentity?.i_address; // Needed for persistence keys
   $: currencySymbol = getCurrencySymbol(blockchainId); // Dynamic currency symbol
+
+  // Sort conversations by most recent message (most recent first)
+  $: sortedConversations = (() => {
+    // Create a copy of conversations with their most recent message timestamps
+    const conversationsWithTimestamps = conversations.map(conversation => {
+      const conversationMessages = messages[conversation.id] || [];
+      // Find the most recent message timestamp for this conversation
+      const mostRecentTimestamp = conversationMessages.length > 0 
+        ? Math.max(...conversationMessages.map(msg => msg.timestamp))
+        : 0; // Use 0 for conversations with no messages (they go to bottom)
+      
+      return {
+        ...conversation,
+        lastMessageTimestamp: mostRecentTimestamp
+      };
+    });
+
+    // Sort by most recent timestamp (descending - most recent first)
+    return conversationsWithTimestamps.sort((a, b) => {
+      // If one has messages and the other doesn't, prioritize the one with messages
+      if (a.lastMessageTimestamp === 0 && b.lastMessageTimestamp > 0) return 1;
+      if (b.lastMessageTimestamp === 0 && a.lastMessageTimestamp > 0) return -1;
+      
+      // Sort by timestamp descending (most recent first)
+      return b.lastMessageTimestamp - a.lastMessageTimestamp;
+    });
+  })();
 
   // --- Lifecycle ---
   onMount(() => {
@@ -706,13 +735,13 @@
 
 </script>
 
-<div class="flex h-screen font-sans text-sm">
+<div class="flex h-screen font-sans text-sm overflow-hidden">
   <!-- Left Sidebar -->
   <div class="w-[25%] max-w-[300px] min-w-[200px] flex-shrink-0 bg-dark-bg-secondary flex flex-col shadow-sm">
     <!-- Conversations List (scrollable) -->
     <div class="flex-grow overflow-hidden">
       <ConversationsList 
-        conversations={conversations}
+        conversations={sortedConversations}
         selectedConversationId={selectedConversationId}
         on:selectConversation={handleSelectConversation}
         on:openNewChatModal={handleOpenNewChatModal}  
@@ -734,7 +763,7 @@
   </div>
 
   <!-- Right Panel (Chat View OR Settings View) -->
-  <div class="flex-grow flex flex-col">
+  <div class="flex-grow flex flex-col min-w-0 overflow-hidden">
     {#if showSettingsView}
         <SettingsView 
             currentPersistenceSetting={persistenceSetting}

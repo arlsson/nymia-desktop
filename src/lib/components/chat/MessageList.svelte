@@ -6,6 +6,7 @@
 // - Handles message group iteration and rendering
 // - Manages empty state display
 // - Provides scroll container reference to parent
+// - FIXED: Added proper overflow handling to prevent horizontal scrolling
 
   import MessageGroup from './MessageGroup.svelte';
   import DateSeparator from './DateSeparator.svelte';
@@ -23,7 +24,7 @@
 
 <div 
   bind:this={scrollContainer}
-  class="flex-grow overflow-y-auto bg-dark-bg-primary flex flex-col px-4 py-2"
+  class="flex-grow overflow-y-auto overflow-x-hidden bg-dark-bg-primary flex flex-col px-4 py-2"
 >
   {#if messageGroups.length > 0}
     {#each messageGroups as group (group.id)}

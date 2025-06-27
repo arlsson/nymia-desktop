@@ -71,6 +71,10 @@
   let blockchainSelected = false; // Track if an Available blockchain has been selected
   let showPrivacyModal = false; // Control privacy info modal visibility
 
+  // Responsibility message hover state
+  let responsibilityHovered = false;
+  let responsibilityHoverTimeout: ReturnType<typeof setTimeout> | null = null;
+
   // --- Event Dispatcher (to parent: +page.svelte) ---
   const dispatch = createEventDispatcher<{
     'login-success': LoginPayload;
@@ -144,6 +148,24 @@
 
   function handleUnderstood() {
     goToStep('blockchain');
+  }
+
+  // Responsibility message hover handlers
+  function handleResponsibilityMouseEnter() {
+    // Clear any existing timeout
+    if (responsibilityHoverTimeout) {
+      clearTimeout(responsibilityHoverTimeout);
+      responsibilityHoverTimeout = null;
+    }
+    responsibilityHovered = true;
+  }
+
+  function handleResponsibilityMouseLeave() {
+    // Set timeout to remove hover effect after 2 seconds
+    responsibilityHoverTimeout = setTimeout(() => {
+      responsibilityHovered = false;
+      responsibilityHoverTimeout = null;
+    }, 2000);
   }
 
   function handleBlockchainSelected(event: CustomEvent<{ 
@@ -257,6 +279,20 @@
 
       <!-- Bottom Button Bar -->
       <div class="pr-10 pl-4 py-4 border-t border-dark-border-primary bg-dark-bg-primary mt-auto">
+          
+          <!-- Responsibility Message (only shown on responsibility step) -->
+          {#if currentStep === 'responsibility'}
+            <div class="mb-8 pl-8 pr-2 pt-2">
+              <p 
+                class="text-lg font-semibold tracking-tight select-none cursor-default text-left {responsibilityHovered ? 'text-white' : 'text-white/70'}"
+                on:mouseenter={handleResponsibilityMouseEnter}
+                on:mouseleave={handleResponsibilityMouseLeave}
+              >
+                With real privacy comes real responsibility.
+              </p>
+            </div>
+          {/if}
+
           <div class="flex justify-between items-center cursor-default select-none">
               <!-- Left Side: Social Link -->
               <a 
@@ -333,6 +369,26 @@
     height: 100%;
     object-fit: cover; /* Fill container, crop if needed to maintain aspect ratio */
     object-position: center center; /* Center the video */
+  }
+
+
+
+  @keyframes gradient-shimmer {
+    0%, 100% {
+      background-position: 0% 50%;
+    }
+    50% {
+      background-position: 100% 50%;
+    }
+  }
+
+  /* Fallback for browsers that don't support background-clip: text */
+  @supports not (background-clip: text) {
+    .responsibility-text {
+      color: #ffffff;
+      background: none;
+      -webkit-text-fill-color: initial;
+    }
   }
 
   /* Other styles */

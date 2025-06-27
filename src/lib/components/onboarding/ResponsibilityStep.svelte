@@ -30,14 +30,14 @@ onMount(() => {
 </script>
 
 <div class="step-content-area">
-  <h1 class="text-2xl font-semibold text-dark-text-primary mb-6 select-none cursor-default">This isn’t a messaging service. It’s a powerful local tool.</h1>
+  <h1 class="text-2xl font-semibold text-dark-text-primary mb-8 select-none cursor-default">A powerful communication tool. Not a service.</h1>
  
 
   {#if visible}
     <div class="space-y-4" transition:fade={{ duration: 800, delay: 200 }}>
       
       <!-- Local Tool Section -->
-      <div class="rounded-lg p-4" transition:fly={{ y: 20, duration: 600, delay: 400, easing: quintOut }}>
+      <div class="rounded-lg mb-8" transition:fly={{ y: 20, duration: 600, delay: 400, easing: quintOut }}>
         <div class="flex items-start space-x-4">
           <div class="flex-shrink-0 w-10 h-10 rounded-lg bg-brand-green/10 flex items-center justify-center">
             <svg class="w-5 h-5 text-brand-green" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -56,7 +56,7 @@ onMount(() => {
       </div>
 
       <!-- Your Control Section -->
-      <div class="rounded-lg p-4 " transition:fly={{ y: 20, duration: 600, delay: 500, easing: quintOut }}>
+      <div class="rounded-lg" transition:fly={{ y: 20, duration: 600, delay: 500, easing: quintOut }}>
         <div class="flex items-start space-x-4">
           <div class="flex-shrink-0 w-10 h-10 rounded-lg bg-brand-green/10 flex items-center justify-center">
             <svg class="w-5 h-5 text-brand-green" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -74,19 +74,6 @@ onMount(() => {
         </div>
       </div>
 
-      <!-- Responsibility Message -->
-      <div class="text-center space-y-4" transition:fly={{ y: 20, duration: 600, delay: 600, easing: quintOut }}>
-        <div class="flex justify-center">
-          
-        </div>
-                 <div class="space-y-2">
-           <p class="text-base font-medium tracking-tight select-none cursor-default responsibility-text">
-             With real privacy comes real responsibility.
-           </p>
-           
-         </div>
-      </div>
-
     </div>
   {/if}
 </div>
@@ -95,39 +82,5 @@ onMount(() => {
   .step-content-area {
     width: 100%;
     min-height: 300px;
-  }
-
-  .responsibility-text {
-    background: linear-gradient(
-      90deg,
-      #ffffff 0%,
-      #f4fff8 25%,
-      #ffffff 50%,
-      #e1e1e1 75%,
-      #ffffff 100%
-    );
-    background-size: 200% 100%;
-    background-clip: text;
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    animation: gradient-shimmer 3s ease-in-out infinite;
-  }
-
-  @keyframes gradient-shimmer {
-    0%, 100% {
-      background-position: 0% 50%;
-    }
-    50% {
-      background-position: 100% 50%;
-    }
-  }
-
-  /* Fallback for browsers that don't support background-clip: text */
-  @supports not (background-clip: text) {
-    .responsibility-text {
-      color: #ffffff;
-      background: none;
-      -webkit-text-fill-color: initial;
-    }
   }
 </style> 
