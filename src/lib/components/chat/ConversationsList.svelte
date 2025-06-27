@@ -15,11 +15,13 @@
 // - Updated background color to specific hex color #121214
 // - Removed empty state text (handled in ConversationView)
 // - Added animated highlight to New Chat button when no conversations exist
-// - Enhanced unread indicator with MessageSquareLock icon and glow effect
+// - Enhanced unread indicator with MessageSquareDiff icon and glow effect
+// - Added explainer section with acknowledgment for new users before they can start chatting
 
-  import { createEventDispatcher } from 'svelte';
+  import { createEventDispatcher, onMount } from 'svelte';
   import { Plus, MessageSquareDiff } from 'lucide-svelte';
   import Avatar from '../Avatar.svelte';
+  import Button from '../Button.svelte';
 
   // --- Type (could be moved to $lib/types) ---
   type Conversation = {
@@ -33,20 +35,38 @@
   export let conversations: Conversation[] = [];
   export let selectedConversationId: string | null = null;
 
+  // --- State ---
+  let hasAcknowledgedChatInfo = false;
+
   // --- Events ---
   const dispatch = createEventDispatcher<{ 
     selectConversation: { conversationId: string };
     openNewChatModal: void;
   }>();
 
+  // Load acknowledgment state from localStorage on mount
+  onMount(() => {
+    const stored = localStorage.getItem('chatInfoAcknowledged');
+    hasAcknowledgedChatInfo = stored === 'true';
+  });
+
   function handleSelect(id: string) {
     dispatch('selectConversation', { conversationId: id });
   }
   
   function handleNewChat() {
+    if (hasAcknowledgedChatInfo || conversations.length > 0) {
       dispatch('openNewChatModal');
+    }
   }
 
+  function handleAcknowledgeChatInfo() {
+    hasAcknowledgedChatInfo = true;
+    localStorage.setItem('chatInfoAcknowledged', 'true');
+  }
+
+  // Show explainer when no conversations and not acknowledged
+  $: showExplainer = conversations.length === 0 && !hasAcknowledgedChatInfo;
 </script>
 
 <div class="flex flex-col h-full" style="background-color: #121214">
@@ -54,17 +74,42 @@
   <div class="p-3 relative z-10" style="background-color: #121214">
     <button 
       on:click={handleNewChat}
+      disabled={showExplainer}
       class={`w-full flex items-center justify-center py-2 px-3 border text-dark-text-primary rounded-md focus:outline-none focus:ring-2 focus:ring-brand-green focus:ring-offset-2 focus:ring-offset-dark-bg-secondary text-sm font-medium ${
-        conversations.length === 0 
+        showExplainer
+          ? 'border-dark-border-secondary bg-dark-bg-secondary opacity-50 cursor-not-allowed'
+          : conversations.length === 0 && hasAcknowledgedChatInfo
           ? 'border-brand-green bg-brand-green/10 animate-pulse-glow shadow-lg shadow-brand-green/20' 
           : 'border-dark-border-secondary hover:border-brand-green'
       }`}
-      style="background-color: {conversations.length === 0 ? '' : '#121214'}"
+      style="background-color: {showExplainer ? '' : conversations.length === 0 && hasAcknowledgedChatInfo ? '' : '#121214'}"
     >
       <Plus size={16} class="mr-2 text-brand-green" />
       New Chat
     </button>
   </div>
+
+  <!-- Explainer Section for New Users -->
+  {#if showExplainer}
+    <div class="pb-3" style="background-color: #121214">
+      <div class="rounded-lg p-4">
+        <div class="text-lg text-dark-text-primary mb-3">
+          <div class="font-semibold mb-2 text-white cursor-default select-none">How messaging works.</div>
+          <p class="text-white/70 text-xs leading-relaxed mb-4 select-none cursor-default">
+            When you send a message to someone, they will only receive it if they have also started a chat with you. Both parties need to initiate contact for the conversation to work.
+          </p>
+          
+        </div>
+        
+        <Button 
+          variant="primary"
+          on:click={handleAcknowledgeChatInfo}
+        >
+          I Understand
+        </Button>
+      </div>
+    </div>
+  {/if}
 
   <!-- Conversation List (Scrollable) -->
   <div class="flex-grow overflow-y-auto px-1.5" style="background-color: #121214">
