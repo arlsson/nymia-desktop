@@ -96,7 +96,7 @@
         <div class="text-lg text-dark-text-primary mb-3">
           <div class="font-semibold mb-2 text-white cursor-default select-none">How messaging works.</div>
           <p class="text-white/70 text-xs leading-relaxed mb-4 select-none cursor-default">
-            When you send a message to someone, they will only receive it if they have also started a chat with you. Both parties need to initiate contact for the conversation to work.
+            When you send a message to someone, they will only see it if they have also started a chat with you. Both parties need to initiate contact for the conversation to work.
           </p>
           
         </div>
