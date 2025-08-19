@@ -20,6 +20,7 @@
 // - Auto-select newly created VerusID after registration completion
 // - Improved "no identities found" error messaging to be more user-friendly
 // - Fixed error parsing to properly extract messages from nested Tauri error structures
+// - LAYOUT FIX: Moved "Get VerusID" button directly under dropdown for better visibility across platforms
 
     import { createEventDispatcher, onMount } from 'svelte';
     import { invoke } from '@tauri-apps/api/core';
@@ -379,12 +380,9 @@
                     <p class="text-xs text-yellow-400 select-none cursor-default">No VerusIDs with private addresses and required permissions were found in your wallet.</p>
                 </div>
             {/if}
-        </div>
-
-        <!-- Footer Area (pushed to bottom) -->
-        <div class="flex-shrink-0">
-            <!-- Get VerusID Section - Positioned under dropdown, above footer icons -->
-            <div class="mt-8 pt-6 border-t border-white/10">
+            
+            <!-- Get VerusID Section - Positioned directly under dropdown -->
+            <div class="mt-6">
                 <div class="space-y-3">
                     <div class="flex justify-start">
                         <Button
@@ -406,6 +404,10 @@
                     </p>
                 </div>
             </div>
+        </div>
+
+        <!-- Footer Area (no longer needed - button moved above) -->
+        <div class="flex-shrink-0">
         </div>
     </div>
 </div>
