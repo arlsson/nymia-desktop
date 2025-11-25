@@ -13,6 +13,7 @@
 // - Added `pub mod identity_rpc;` to declare the new module for identity RPC logic.
 // - Added `pub mod message_rpc;` to declare the new module for message RPC logic.
 // - Added `pub mod wallet_rpc;` to declare the new module for wallet RPC logic.
+// - Added `pub mod namespace_rpc;` to declare the new module for namespace/currency RPC logic.
 // - Corrected use statements and function call paths to reflect new module structure.
 // - SECURITY: Integrated cryptographic message signing and verification system
 // - Zero-trust messaging: Only verified messages are displayed, unverified messages are silently filtered
@@ -20,6 +21,7 @@
 // - Added macOS window customization with almost black background for native titlebar appearance
 // - Added get_utxo_info command for Fast Messages feature
 // - Added progressive loading commands: get_login_identities_fast, get_identity_balance
+// - Removed fund_private_address_for_messages_cmd command as automatic funding was removed
 
 mod credentials; // Added credentials module
 mod settings; // Added settings module
@@ -27,13 +29,14 @@ pub mod rpc_client;
 pub mod identity_rpc;
 pub mod message_rpc;
 pub mod wallet_rpc;
+pub mod namespace_rpc;
 
-use crate::rpc_client::VerusRpcError; // Corrected
+// use crate::rpc_client::VerusRpcError; // Corrected (unused)
 use crate::credentials::CredentialError; // Import credential error
 use crate::settings::SettingsError; // Import settings error
 use crate::identity_rpc::FormattedIdentity; // Corrected
 use crate::message_rpc::ChatMessage; // Corrected
-use crate::wallet_rpc::UtxoInfo; // Import UtxoInfo struct
+use crate::wallet_rpc::UtxoInfo; // Import UtxoInfo
 
 // Custom error type serializable for Tauri
 #[derive(Debug, serde::Serialize, thiserror::Error)]
@@ -196,6 +199,19 @@ async fn check_identity_eligibility(
         .map_err(CommandError::from) // Uses the updated From implementation
 }
 
+// NEW Command: Check if an identity exists
+#[tauri::command]
+async fn check_identity_exists(
+    app: tauri::AppHandle,
+    identity_name: String,
+) -> Result<bool, CommandError> {
+    log::info!("check_identity_exists command received for: {}", identity_name);
+    let creds = crate::credentials::load_credentials(app).await?;
+    crate::identity_rpc::check_identity_exists(creds.rpc_user, creds.rpc_pass, creds.rpc_port, identity_name)
+        .await
+        .map_err(CommandError::from)
+}
+
 // NEW Command: Get Chat History (with automatic signature verification)
 #[tauri::command]
 async fn get_chat_history(
@@ -335,6 +351,7 @@ pub fn run() {
             get_private_balance, // Add the new balance command
             get_pending_balance, // Add the new pending balance command
             check_identity_eligibility,
+            check_identity_exists, // NEW: For name/referral validation
             get_chat_history,
             get_new_received_messages,
             send_private_message, // Added send message command
@@ -346,7 +363,34 @@ pub fn run() {
             crate::settings::save_messages_for_conversation,
             crate::settings::load_messages_for_conversation,
             crate::settings::delete_chat_data,
-            get_utxo_info
+            get_utxo_info,
+            // Namespace commands
+            crate::namespace_rpc::get_available_namespaces,
+            crate::namespace_rpc::get_root_currency,
+            crate::namespace_rpc::get_currency,
+            // Identity registration commands
+            crate::identity_rpc::get_new_address,
+            crate::identity_rpc::get_new_private_address,
+            crate::identity_rpc::register_name_commitment,
+            crate::identity_rpc::register_identity,
+            crate::identity_rpc::get_transaction_confirmations,
+            crate::identity_rpc::wait_for_confirmations,
+            crate::identity_rpc::get_identity,
+            crate::identity_rpc::check_identity_ready,
+            crate::identity_rpc::wait_for_identity_ready,
+            crate::identity_rpc::dump_privkey,
+            crate::identity_rpc::export_z_key,
+            // Wallet commands
+            crate::wallet_rpc::get_wallet_info,
+            // Currency conversion commands
+            crate::wallet_rpc::estimate_currency_conversion,
+            crate::wallet_rpc::get_wallet_addresses, // NEW
+            crate::wallet_rpc::get_address_currency_balances, // NEW
+            crate::wallet_rpc::get_address_currency_balance, // NEW - single currency balance
+            crate::wallet_rpc::send_currency_conversion, // NEW
+            crate::wallet_rpc::get_current_block_height, // NEW
+            crate::wallet_rpc::wait_for_block_increase, // NEW
+
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

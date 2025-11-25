@@ -14,7 +14,8 @@
   import { Loader2 } from 'lucide-svelte';
 
   // Props
-  export let variant: 'primary' | 'secondary' = 'primary';
+  export let variant: 'primary' | 'secondary' | 'white' = 'primary';
+  export let size: 'normal' | 'small' = 'normal';
   export let disabled: boolean = false;
   export let loading: boolean = false;
   export let loadingText: string = 'Loading...';
@@ -29,14 +30,18 @@
 
   // Dynamic classes based on variant
   $: buttonClasses = `
-    py-2 px-3 rounded-md shadow-sm text-xs font-medium select-none 
+    rounded-md shadow-sm text-xs font-medium select-none 
     focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-brand-green 
     flex items-center justify-center
     
+    ${size === 'normal' ? 'py-2 px-3' : 'py-1.5 px-2.5'}
+
     ${disabled || loading ? 'disabled:opacity-50 disabled:cursor-not-allowed' : ''}
     ${variant === 'primary' 
       ? 'btn-primary border border-transparent text-white bg-brand-green hover:bg-[#32905D]' 
-      : 'btn-secondary border border-white/20 text-dark-text-primary bg-transparent hover:border-white/40'
+      : variant === 'secondary'
+      ? 'btn-secondary border border-white/20 text-dark-text-primary bg-transparent hover:border-white/40'
+      : 'btn-white border border-transparent text-black bg-white hover:bg-gray-100'
     }
   `.trim();
 

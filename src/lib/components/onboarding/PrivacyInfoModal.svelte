@@ -91,7 +91,7 @@
             </li>
             <li class="flex items-start">
               <span class="text-brand-green text-xs mr-2 mt-1">•</span>
-              <span>Even the transaction amounts and addresses are hidden</span>
+              <span>Transactions, amounts and addresses are hidden</span>
             </li>
           </ul>
         </div>
